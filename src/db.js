@@ -334,8 +334,23 @@ function pgSchema() {
 // destino: URL postgres://... o archivo SQLite (':memory:' para pruebas).
 // Por defecto usa DATABASE_URL si existe; si no, DB_FILE o data/calidad.db.
 // reset: true vacía la base PostgreSQL de pruebas antes de empezar.
+// Acepta la cadena tal como se copia de Neon: con espacios, comillas o el
+// comando "psql '...'" delante. Devuelve null si no hay una URL postgres.
+function cleanPgUrl(v) {
+  if (!v) return null;
+  const m = String(v).match(/postgres(?:ql)?:\/\/[^\s'"]+/);
+  return m ? m[0] : null;
+}
+
 async function open(target, { reset = false } = {}) {
-  const dest = target || process.env.DATABASE_URL || process.env.DB_FILE || path.join(__dirname, '..', 'data', 'calidad.db');
+  const envUrl = process.env.DATABASE_URL;
+  if (!target && process.env.RENDER && !cleanPgUrl(envUrl)) {
+    throw new Error('Falta DATABASE_URL en Render. Pega la cadena de Neon en Environment y vuelve a desplegar.');
+  }
+  if (!target && envUrl && envUrl.trim() && !cleanPgUrl(envUrl)) {
+    throw new Error('DATABASE_URL no es una cadena de PostgreSQL válida. Debe empezar con postgresql:// (cópiala de Neon con el botón Connect).');
+  }
+  const dest = cleanPgUrl(target) || target || cleanPgUrl(envUrl) || process.env.DB_FILE || path.join(__dirname, '..', 'data', 'calidad.db');
   let db;
   if (/^postgres(ql)?:\/\//.test(dest)) {
     db = new PgStore(dest);
@@ -374,4 +389,4 @@ function tx(db, fn) {
   return db.transaction(fn);
 }
 
-module.exports = { open, tx, yearNow, POINTS_8, DEFAULT_PASSWORD };
+module.exports = { open, tx, yearNow, cleanPgUrl, POINTS_8, DEFAULT_PASSWORD };
