@@ -17,11 +17,13 @@ Aplicación web para registrar las mediciones de calidad de cada lote de producc
 
 | Perfil | Puede |
 |---|---|
-| Operario / Inspector | Crear lotes, registrar muestras y resultados de pruebas |
-| Analista de calidad | Lo anterior + editar productos y especificaciones, crear pruebas, eliminar muestras, enviar lotes a aprobación |
+| Aprendiz / Operario | Crear lotes, registrar muestras y resultados de pruebas |
+| Auxiliar de calidad | Lo anterior + editar productos y especificaciones, crear pruebas, eliminar muestras, enviar lotes a aprobación |
 | Jefe de calidad | Lo anterior + aprobar (emite el certificado) o rechazar lotes, administrar usuarios |
 
 Usuarios iniciales (contraseña `Calidad2026*` para los tres): `inspector`, `analista`, `jefe`.
+
+Equipo de calidad (misma contraseña inicial; la app obliga a cambiarla en el primer ingreso): `lgomez` Luis Eduardo Gómez (jefe), `jcvallecilla` Juan Camilo Vallecilla (auxiliar), `paola` Paola (auxiliar), `ncastellanos` Nicolás Castellanos (aprendiz). Cuando el jefe asigna una contraseña nueva en *Usuarios*, la persona también debe cambiarla al entrar.
 **Cámbienla el primer día** desde *Mi cuenta* (clic en el nombre arriba a la derecha). El jefe puede crear los usuarios con el nombre real de cada persona en *Usuarios*.
 
 ## Instalar y ejecutar

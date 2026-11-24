@@ -9,7 +9,7 @@ const { evaluateLot, releaseLot, specPoints } = require('./quality');
 const { certificatePdf } = require('./pdf');
 const indicadores = require('./indicadores');
 
-const ROLE_NAMES = { inspector: 'Operario / Inspector', analista: 'Analista de calidad', jefe: 'Jefe de calidad' };
+const ROLE_NAMES = { inspector: 'Aprendiz / Operario', analista: 'Auxiliar de calidad', jefe: 'Jefe de calidad' };
 const STATUS_NAMES = { en_proceso: 'En proceso', en_revision: 'En revisión', liberado: 'Liberado', rechazado: 'Rechazado' };
 
 function createApp(db) {
@@ -46,6 +46,14 @@ function createApp(db) {
   });
 
   const flash = (req, type, msg) => { req.session.flash = { type, msg }; };
+  // Quien entra con una contraseña inicial o reiniciada debe cambiarla antes de usar la app.
+  app.use((req, res, next) => {
+    const u = req.session.user;
+    if (!u || !u.must_change || ['/cuenta', '/logout'].includes(req.path)) return next();
+    if (req.method !== 'GET') return res.status(403).end();
+    flash(req, 'error', 'Antes de seguir, cambia tu contraseña inicial por una personal.');
+    res.redirect('/cuenta');
+  });
   const auth = (req, res, next) => (req.session.user ? next() : res.redirect('/login'));
   const role = (...roles) => async (req, res, next) => {
     if (!req.session.user) return res.redirect('/login');
@@ -70,7 +78,7 @@ function createApp(db) {
       return res.status(401).render('login', { title: 'Ingresar', error: 'Usuario o contraseña incorrectos' });
     }
     req.session.regenerate(() => {
-      req.session.user = { id: u.id, username: u.username, full_name: u.full_name, role: u.role };
+      req.session.user = { id: u.id, username: u.username, full_name: u.full_name, role: u.role, must_change: !!u.must_change };
       res.redirect('/');
     });
   });
@@ -84,9 +92,13 @@ function createApp(db) {
     if (!bcrypt.compareSync(String(current || ''), u.password_hash)) flash(req, 'error', 'La contraseña actual no es correcta');
     else if (!password || password.length < 8) flash(req, 'error', 'La nueva contraseña debe tener al menos 8 caracteres');
     else if (password !== confirm) flash(req, 'error', 'Las contraseñas no coinciden');
+    else if (password === current) flash(req, 'error', 'La nueva contraseña debe ser distinta de la actual');
     else {
-      await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), u.id);
+      await db.prepare('UPDATE users SET password_hash = ?, must_change = 0 WHERE id = ?').run(bcrypt.hashSync(password, 10), u.id);
+      const wasForced = req.session.user.must_change;
+      req.session.user.must_change = false;
       flash(req, 'ok', 'Contraseña actualizada');
+      if (wasForced) return res.redirect('/');
     }
     res.redirect('/cuenta');
   });
@@ -457,7 +469,7 @@ function createApp(db) {
     else if (!password || password.length < 8) flash(req, 'error', 'La contraseña debe tener al menos 8 caracteres');
     else if (await db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) flash(req, 'error', 'Ese usuario ya existe');
     else {
-      await db.prepare('INSERT INTO users (username, full_name, role, password_hash) VALUES (?,?,?,?)').run(username, full_name.trim(), r, bcrypt.hashSync(password, 10));
+      await db.prepare('INSERT INTO users (username, full_name, role, password_hash, must_change) VALUES (?,?,?,?,1)').run(username, full_name.trim(), r, bcrypt.hashSync(password, 10));
       await audit(req, 'crear_usuario', username);
       flash(req, 'ok', `Usuario ${username} creado`);
     }
@@ -477,7 +489,7 @@ function createApp(db) {
     await db.prepare('UPDATE users SET full_name = ?, role = ?, active = ? WHERE id = ?').run(full_name.trim(), r, active, id);
     if (password) {
       if (password.length < 8) { flash(req, 'error', 'La contraseña debe tener al menos 8 caracteres'); return res.redirect('/usuarios'); }
-      await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), id);
+      await db.prepare('UPDATE users SET password_hash = ?, must_change = 1 WHERE id = ?').run(bcrypt.hashSync(password, 10), id);
     }
     await audit(req, 'editar_usuario', u.username);
     flash(req, 'ok', `Usuario ${u.username} actualizado`);
