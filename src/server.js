@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const { open, tx } = require('./db');
 const { evaluateLot, releaseLot, specPoints } = require('./quality');
 const { certificatePdf } = require('./pdf');
+const indicadores = require('./indicadores');
 
 const ROLE_NAMES = { inspector: 'Operario / Inspector', analista: 'Analista de calidad', jefe: 'Jefe de calidad' };
 const STATUS_NAMES = { en_proceso: 'En proceso', en_revision: 'En revisión', liberado: 'Liberado', rechazado: 'Rechazado' };
@@ -269,6 +270,20 @@ function createApp(db) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${c.number}.pdf"`);
     certificatePdf(JSON.parse(c.snapshot), res);
+  });
+
+  // ---------- Indicadores ----------
+  app.get('/indicadores', auth, (req, res) => {
+    const ind = indicadores.calcular(db, req.query);
+    const products = db.prepare('SELECT id, code, name, molde FROM products ORDER BY code').all();
+    const qs = new URLSearchParams(Object.entries(ind.filtros).filter(([, v]) => v).map(([k, v]) => [k, String(v)])).toString();
+    res.render('indicadores', { title: 'Indicadores', ind, products, qs });
+  });
+  app.get('/indicadores/lotes.csv', auth, (req, res) => {
+    const ind = indicadores.calcular(db, req.query);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="lotes-indicadores.csv"');
+    res.send(indicadores.csvLotes(ind.lotes));
   });
 
   // ---------- Catálogo de productos ----------

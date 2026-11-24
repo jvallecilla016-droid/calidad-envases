@@ -10,6 +10,7 @@ Aplicación web para registrar las mediciones de calidad de cada lote de producc
 - **Pruebas de liberación**: impacto y filtración (Pasa / No pasa + observaciones). Desde el menú *Pruebas* se pueden agregar más; toda prueba activa se vuelve obligatoria.
 - **Flujo de aprobación**: En proceso → En revisión → Liberado o Rechazado.
 - **Certificado PDF** con consecutivo único por año (`CL-2026-0001`, `CL-2026-0002`…), con el resumen de especificaciones, las pruebas, las firmas y un anexo con todas las lecturas por punto. El certificado guarda una foto de los datos al momento de liberar, así que no cambia si después se editan las especificaciones.
+- **Indicadores** (menú *Indicadores*): lotes liberados y rechazados, porcentaje de cumplimiento, lotes por semana, cumplimiento por producto, lecturas fuera de LIC–LSC por punto A–H y por característica, resultados de impacto y filtración, y el detalle de cada lectura fuera de especificación. Se calcula en vivo con los lotes de la base de datos y se filtra por producto, tipo de molde y rango de fechas de producción. El botón *Descargar lotes (CSV)* exporta los lotes filtrados para abrirlos en Excel.
 - **Registro de auditoría** de cada acción (tabla `audit_log`).
 
 ## Perfiles

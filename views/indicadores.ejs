@@ -1,0 +1,150 @@
+<%- include('partials/header') %>
+<%
+  const r = ind.resumen, f = ind.filtros;
+  const n = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString('es-CO'));
+  const p = (v) => (v === null || v === undefined ? '—' : String(v).replace('.', ',') + ' %');
+  const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const corta = (s) => { const [, m, d] = s.split('-'); return Number(d) + ' ' + MES[Number(m) - 1]; };
+  const maxSem = Math.max(1, ...ind.porSemana.map((s) => s.total));
+  const maxPunto = Math.max(0, ...ind.porPunto.map((x) => x.fuera));
+  const maxCar = Math.max(1, ...ind.porCaracteristica.map((x) => x.fuera));
+  const filtrado = f.producto || f.molde || f.desde || f.hasta;
+%>
+<div class="head">
+  <h1>Indicadores de calidad</h1>
+  <a class="btn" href="/indicadores/lotes.csv<%= qs ? '?' + qs : '' %>">Descargar lotes (CSV)</a>
+</div>
+<% if (r.lotes) { %>
+<p class="lede">De <strong><%= n(r.lotes) %></strong> lotes registrados<%= filtrado ? ' con estos filtros' : '' %>, se liberaron <strong><%= n(r.liberados) %></strong> y se rechazaron <strong><%= n(r.rechazados) %></strong>. El cumplimiento de los lotes ya decididos es <strong><%= p(r.cumplimiento) %></strong>.</p>
+<% } %>
+
+<form method="get" action="/indicadores" class="filters card">
+  <label for="f-producto">Producto
+    <select id="f-producto" name="producto">
+      <option value="">Todos los productos</option>
+      <% for (const pr of products) { %><option value="<%= pr.id %>" <%= f.producto === pr.id ? 'selected' : '' %>><%= pr.code %> · <%= pr.name %> · <%= pr.molde %></option><% } %>
+    </select>
+  </label>
+  <label for="f-molde">Tipo de molde
+    <select id="f-molde" name="molde">
+      <option value="">Todos</option>
+      <% for (const m of ['Colada fría', 'Colada caliente']) { %><option <%= f.molde === m ? 'selected' : '' %>><%= m %></option><% } %>
+    </select>
+  </label>
+  <label for="f-desde">Producido desde <input type="date" id="f-desde" name="desde" value="<%= f.desde %>"></label>
+  <label for="f-hasta">Hasta <input type="date" id="f-hasta" name="hasta" value="<%= f.hasta %>"></label>
+  <div class="actions">
+    <button class="btn primary">Aplicar</button>
+    <% if (filtrado) { %><a class="btn" href="/indicadores">Quitar filtros</a><% } %>
+  </div>
+</form>
+
+<% if (!r.lotes) { %>
+  <div class="card"><p class="muted">No hay lotes registrados<%= filtrado ? ' con estos filtros' : '' %>. Los indicadores aparecen cuando se crean lotes y se registran muestras y pruebas.</p></div>
+<% } else { %>
+
+<div class="kpis">
+  <div class="kpi"><span class="k">Lotes</span><span class="v"><%= n(r.lotes) %></span><span class="s"><%= n(r.en_proceso) %> en proceso · <%= n(r.en_revision) %> en revisión</span></div>
+  <div class="kpi"><span class="k">Liberados</span><span class="v ok"><%= n(r.liberados) %></span><span class="s">con certificado emitido</span></div>
+  <div class="kpi"><span class="k">Rechazados</span><span class="v bad"><%= n(r.rechazados) %></span><span class="s">por medición o prueba</span></div>
+  <div class="kpi"><span class="k">Cumplimiento</span><span class="v"><%= p(r.cumplimiento) %></span><span class="s">liberados ÷ (liberados + rechazados)</span></div>
+  <div class="kpi"><span class="k">Lecturas fuera de LIC–LSC</span><span class="v <%= r.lecturas_fuera ? 'bad' : '' %>"><%= n(r.lecturas_fuera) %></span><span class="s">de <%= n(r.lecturas) %> lecturas</span></div>
+</div>
+
+<section class="card">
+  <h2>Lotes por semana de producción</h2>
+  <ul class="legend"><li><span class="sw liberado"></span>Liberado</li><li><span class="sw rechazado"></span>Rechazado</li><li><span class="sw en_revision"></span>En revisión</li><li><span class="sw en_proceso"></span>En proceso</li></ul>
+  <div class="cols" role="img" aria-label="Lotes por semana de producción según estado">
+    <% for (const s of ind.porSemana) { %>
+      <div class="col" title="Semana del <%= corta(s.semana) %>: <%= s.liberado %> liberados, <%= s.rechazado %> rechazados, <%= s.en_revision %> en revisión, <%= s.en_proceso %> en proceso">
+        <span class="tot"><%= s.total %></span>
+        <div class="stack" style="height: <%= (s.total / maxSem * 100).toFixed(1) %>%">
+          <% for (const e of ['en_proceso', 'en_revision', 'rechazado', 'liberado']) { if (s[e]) { %><i class="seg <%= e %>" style="flex-grow: <%= s[e] %>"></i><% } } %>
+        </div>
+        <span class="x"><%= corta(s.semana) %></span>
+      </div>
+    <% } %>
+  </div>
+  <% if (ind.porSemana.length === 16) { %><p class="note">Se muestran las últimas 16 semanas.</p><% } %>
+</section>
+
+<div class="two">
+  <section class="card">
+    <h2>Cumplimiento por producto</h2>
+    <p class="note">Lotes liberados sobre lotes decididos. En rojo, los productos por debajo de 80 %.</p>
+    <div class="hbars">
+      <% for (const pr of ind.porProducto) { %>
+        <div class="hrow" title="<%= pr.codigo %> · <%= pr.nombre %> · <%= pr.molde %>">
+          <span class="hl"><%= pr.codigo %></span>
+          <span class="track"><i class="<%= pr.cumplimiento !== null && pr.cumplimiento < 80 ? 'low' : '' %>" style="width: <%= pr.cumplimiento ?? 0 %>%"></i></span>
+          <span class="hv"><%= p(pr.cumplimiento) %> <small class="muted">(<%= pr.liberados %>/<%= pr.decididos %>)</small></span>
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Lecturas de diámetro fuera de límite por punto</h2>
+    <p class="note">Un punto que se repite puede indicar desgaste o desalineación del molde.</p>
+    <% if (!maxPunto) { %><p class="muted">Ninguna lectura de diámetro fuera de límite.</p><% } else { %>
+    <div class="cols short" role="img" aria-label="Lecturas fuera de límite en los puntos A a H">
+      <% for (const x of ind.porPunto) { %>
+        <div class="col" title="Punto <%= x.punto %>: <%= x.fuera %> lectura(s) fuera">
+          <span class="tot"><%= x.fuera %></span>
+          <div class="stack" style="height: <%= (x.fuera / maxPunto * 100).toFixed(1) %>%"><i class="seg <%= x.fuera === maxPunto ? 'rechazado' : 'base' %>" style="flex-grow:1"></i></div>
+          <span class="x"><%= x.punto %></span>
+        </div>
+      <% } %>
+    </div>
+    <% } %>
+  </section>
+</div>
+
+<div class="two">
+  <section class="card">
+    <h2>Lecturas fuera de límite por característica</h2>
+    <% if (!ind.porCaracteristica.length) { %><p class="muted">Ninguna lectura fuera de límite.</p><% } else { %>
+    <div class="hbars">
+      <% for (const c of ind.porCaracteristica) { %>
+        <div class="hrow wide"><span class="hl"><%= c.caracteristica %></span><span class="track"><i style="width: <%= (c.fuera / maxCar * 100).toFixed(1) %>%"></i></span><span class="hv"><%= c.fuera %></span></div>
+      <% } %>
+    </div>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <h2>Pruebas de liberación</h2>
+    <% if (!ind.pruebas.length) { %><p class="muted">Aún no hay resultados de pruebas.</p><% } else { %>
+    <ul class="legend"><li><span class="sw liberado"></span>Pasa</li><li><span class="sw rechazado"></span>No pasa</li></ul>
+    <div class="hbars">
+      <% for (const t of ind.pruebas) { const tot = t.pasa + t.no_pasa || 1; %>
+        <div class="hrow wide" title="<%= t.prueba %>: <%= t.pasa %> pasa, <%= t.no_pasa %> no pasa">
+          <span class="hl"><%= t.prueba %><%= t.active ? '' : ' (inactiva)' %></span>
+          <span class="track split"><i class="pasa" style="width: <%= (t.pasa / tot * 100).toFixed(1) %>%"></i><i class="nopasa" style="width: <%= (t.no_pasa / tot * 100).toFixed(1) %>%"></i></span>
+          <span class="hv"><%= p(t.aprobacion) %> <small class="muted">· <%= t.no_pasa %> no pasa</small></span>
+        </div>
+      <% } %>
+    </div>
+    <% } %>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Lecturas fuera de especificación</h2>
+  <% if (!ind.fuera.length) { %><p class="muted">Ninguna lectura fuera de LIC–LSC.</p><% } else { %>
+  <div class="scrollbox">
+  <table class="grid">
+    <thead><tr><th>Fecha</th><th>Lote</th><th>Producto</th><th>Característica</th><th>Punto</th><th>Muestra</th><th>Valor</th><th>Límites</th><th>Desviación</th></tr></thead>
+    <tbody>
+    <% for (const x of ind.fuera.slice(0, 300)) { %>
+      <tr><td><%= x.production_date %></td><td><a href="/lotes/<%= x.lot_id %>"><%= x.lot_number %></a></td><td><%= x.product_code %></td><td><%= x.characteristic %></td><td><%= x.point || '—' %></td><td><%= x.sample_no %></td>
+      <td class="out-txt"><%= String(x.value).replace('.', ',') %> <%= x.unit %></td><td><%= x.lic %>–<%= x.lsc %></td><td class="out-txt"><%= (x.desviacion > 0 ? '+' : '') + String(x.desviacion).replace('.', ',') %></td></tr>
+    <% } %>
+    </tbody>
+  </table>
+  </div>
+  <% if (ind.fuera.length > 300) { %><p class="note">Se muestran las 300 más recientes de <%= n(ind.fuera.length) %>.</p><% } %>
+  <% } %>
+</section>
+<% } %>
+<%- include('partials/footer') %>

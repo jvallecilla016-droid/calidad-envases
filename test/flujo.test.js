@@ -104,7 +104,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
 
   // Las páginas cargan para cada perfil
   for (const c of [insp, analista, jefe]) {
-    for (const p of ['/', `/lotes/${lotId}`, '/certificados', '/productos', `/productos/${prod.id}`, '/pruebas', '/cuenta']) {
+    for (const p of ['/', `/lotes/${lotId}`, '/indicadores', '/indicadores?molde=Colada%20fr%C3%ADa&desde=2026-01-01', '/indicadores/lotes.csv', '/certificados', '/productos', `/productos/${prod.id}`, '/pruebas', '/cuenta']) {
       assert.strictEqual((await c.get(p)).status, 200, p);
     }
   }
