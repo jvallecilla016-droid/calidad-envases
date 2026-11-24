@@ -69,3 +69,73 @@ input.num { width:80px; } #specs input, #specs select { margin:0; }
 .track.split i.pasa { background: var(--ok); } .track.split i.nopasa { background: var(--bad); }
 .scrollbox { max-height: 420px; overflow: auto; } .out-txt { color: var(--bad); font-weight: 600; }
 @media (max-width: 700px) { .hrow, .hrow.wide { grid-template-columns: 90px 1fr; } .hrow .hv { grid-column: 2; } }
+
+/* ---------- Celular (mobile-first) ---------- */
+html { -webkit-text-size-adjust: 100%; }
+input, select, textarea { font-size: 16px; }
+.tabbar { display: none; }
+.lot-cards { display: none; }
+.back { display: inline-block; margin-bottom: 6px; text-decoration: none; font-size: .9rem; }
+.hscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.hscroll > table.grid { margin: 0; }
+.small { font-size: .82rem; }
+.btn.wide { width: 100%; }
+.menu-list { display: grid; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 12px 0; }
+.menu-list a { display: flex; justify-content: space-between; align-items: center; padding: 15px 16px; border-bottom: 1px solid var(--line); text-decoration: none; color: #1b1f24; font-weight: 500; }
+.menu-list a:last-child { border-bottom: 0; } .menu-list span { color: var(--muted); font-size: 1.3rem; }
+
+/* Formulario de muestra por bloques */
+fieldset.spec { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 12px 14px 14px; margin: 0 0 12px; }
+fieldset.spec legend { font-weight: 600; padding: 0 6px; font-size: .95rem; }
+fieldset.spec legend small, .w small { color: var(--muted); font-weight: 400; margin-left: 4px; white-space: nowrap; }
+fieldset.spec.has-out { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad) inset; } fieldset.spec.done { border-color: var(--ok); }
+.points { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; }
+.pt { margin: 0; display: grid; gap: 2px; text-align: center; font-weight: 600; font-size: .8rem; color: var(--muted); }
+.pt input, .w input { margin: 0; text-align: center; padding: 10px 4px; font-size: 17px; font-variant-numeric: tabular-nums; }
+.weights { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.w { margin: 0; display: grid; gap: 4px; }
+.savebar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); z-index: 5; }
+.live { font-size: .88rem; color: var(--muted); font-variant-numeric: tabular-nums; } .live.bad { color: var(--bad); font-weight: 700; }
+
+/* Pruebas: botones Pasa / No pasa */
+.seg2 { display: inline-flex; border: 1px solid #b9c2cc; border-radius: 8px; overflow: hidden; }
+.seg2 .opt { margin: 0; display: block; cursor: pointer; } .seg2 input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg2 span { display: block; padding: 8px 14px; font-weight: 600; font-size: .9rem; background: #fff; }
+.seg2 .opt + .opt span { border-left: 1px solid #b9c2cc; }
+.seg2 .ok input:checked + span { background: var(--ok); color: #fff; } .seg2 .bad input:checked + span { background: var(--bad); color: #fff; }
+.seg2 input:focus-visible + span { outline: 3px solid var(--blue2); outline-offset: -3px; }
+
+@media (max-width: 760px) {
+  main { padding: 14px 14px calc(84px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 1.3rem; }
+  .top { padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top)); gap: 8px; }
+  .top nav.desk, .top .who { display: none; }
+  .brand { color: #fff; text-decoration: none; }
+  .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: #fff; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  .tabbar a { display: grid; justify-items: center; gap: 2px; padding: 8px 0 7px; font-size: .72rem; color: var(--muted); text-decoration: none; }
+  .tabbar a.on { color: var(--blue); font-weight: 600; }
+  .tabbar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .tabbar circle { fill: currentColor; stroke: none; }
+  .tabbar a.add svg { background: var(--blue2); color: #fff; border-radius: 50%; padding: 3px; width: 28px; height: 28px; }
+  .savebar { bottom: calc(58px + env(safe-area-inset-bottom)); margin: 0 -14px; padding: 10px 14px; }
+  .points { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .btn { min-height: 44px; padding: 10px 16px; } .btn.small { min-height: 36px; }
+  .hide-m { display: none !important; }
+  .lot-cards { display: grid; gap: 8px; margin-top: 10px; }
+  .lot-card { display: grid; gap: 3px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; text-decoration: none; color: #1b1f24; }
+  .lc-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; } .lc-mid { font-size: .9rem; } .lc-bot { font-size: .8rem; color: var(--muted); }
+  .tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; } .tabs a { white-space: nowrap; } .tabs .search { min-width: 100%; order: -1; margin: 0 0 6px; }
+  .tabs { flex-wrap: wrap; }
+  table.grid { display: table; } .hscroll table.grid { min-width: 640px; }
+  table.tests, table.tests tbody, table.tests tr, table.tests td { display: block; width: 100%; }
+  table.tests thead { display: none; }
+  table.tests tr { border-bottom: 1px solid var(--line); padding: 10px 12px; }
+  table.tests td { border: 0; padding: 3px 0; }
+  .test-form { display: grid; gap: 8px; margin-top: 6px; } .test-form input[name=observations] { width: 100%; }
+  .seg2 { width: 100%; } .seg2 .opt { flex: 1; text-align: center; } .seg2 span { padding: 11px 0; }
+  .cards { grid-template-columns: 1fr; }
+  dl { grid-template-columns: 110px 1fr; }
+  .card.narrow { max-width: none; }
+  .head .btn { width: 100%; text-align: center; }
+}
+body.offline::before { content: "Sin señal · lo que guardes no llegará hasta que vuelva la conexión"; position: fixed; top: 0; left: 0; right: 0; z-index: 50; background: var(--bad); color: #fff; font-size: .8rem; text-align: center; padding: calc(4px + env(safe-area-inset-top)) 8px 4px; }

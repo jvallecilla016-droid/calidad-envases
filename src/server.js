@@ -15,9 +15,14 @@ const STATUS_NAMES = { en_proceso: 'En proceso', en_revision: 'En revisión', li
 function createApp(db) {
   const app = express();
   app.set('view engine', 'ejs');
+  app.set('trust proxy', 1);
   app.set('views', path.join(__dirname, '..', 'views'));
   app.use(express.urlencoded({ extended: true }));
   app.use('/static', express.static(path.join(__dirname, '..', 'public')));
+  const pub = (f, type) => (req, res) => { res.type(type); res.setHeader('Cache-Control', 'no-cache'); res.sendFile(path.join(__dirname, '..', 'public', f)); };
+  app.get('/sw.js', pub('sw.js', 'application/javascript'));
+  app.get('/manifest.webmanifest', pub('manifest.webmanifest', 'application/manifest+json'));
+  app.get('/offline.html', pub('offline.html', 'html'));
   app.use(session({
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
@@ -66,6 +71,7 @@ function createApp(db) {
   });
   app.post('/logout', (req, res) => req.session.destroy(() => res.redirect('/login')));
 
+  app.get('/menu', auth, (req, res) => res.render('menu', { title: 'Menú', tab: 'menu' }));
   app.get('/cuenta', auth, (req, res) => res.render('account', { title: 'Mi cuenta' }));
   app.post('/cuenta', auth, (req, res) => {
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.user.id);
@@ -92,7 +98,7 @@ function createApp(db) {
     sql += ' ORDER BY l.id DESC LIMIT 200';
     const lots = db.prepare(sql).all(...args);
     const counts = Object.fromEntries(db.prepare('SELECT status, COUNT(*) AS n FROM lots GROUP BY status').all().map((r) => [r.status, r.n]));
-    res.render('dashboard', { title: 'Lotes', lots, counts, status, q });
+    res.render('dashboard', { title: 'Lotes', lots, counts, status, q, tab: 'lotes' });
   });
 
   app.get('/lotes/nuevo', auth, (req, res) => {
@@ -186,7 +192,8 @@ function createApp(db) {
     const after = evaluateLot(db, ev.lot.id);
     const s = existing ? after.samples.find((x) => x.id === existing.id) : after.samples[after.samples.length - 1];
     flash(req, s.ok ? 'ok' : 'error', s.ok ? `Muestra ${s.sample_no} guardada: CONFORME` : `Muestra ${s.sample_no} guardada: tiene lecturas FUERA de especificación`);
-    res.redirect(`/lotes/${ev.lot.id}`);
+    const draft = /^[0-9]+-(nueva|[0-9]+)$/.test(String(req.body.draft || '')) ? `?guardado=${req.body.draft}` : '';
+    res.redirect(`/lotes/${ev.lot.id}${draft}`);
   };
   app.post('/lotes/:id/muestras', auth, loadLot, editable, saveSample);
   app.post('/lotes/:id/muestras/:sid', auth, loadLot, editable, saveSample);
@@ -277,7 +284,7 @@ function createApp(db) {
     const ind = indicadores.calcular(db, req.query);
     const products = db.prepare('SELECT id, code, name, molde FROM products ORDER BY code').all();
     const qs = new URLSearchParams(Object.entries(ind.filtros).filter(([, v]) => v).map(([k, v]) => [k, String(v)])).toString();
-    res.render('indicadores', { title: 'Indicadores', ind, products, qs });
+    res.render('indicadores', { title: 'Indicadores', ind, products, qs, tab: 'indicadores' });
   });
   app.get('/indicadores/lotes.csv', auth, (req, res) => {
     const ind = indicadores.calcular(db, req.query);

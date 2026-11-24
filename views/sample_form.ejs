@@ -1,67 +1,42 @@
 <%- include('partials/header') %>
-<% const l = ev.lot; %>
-<h1><%= sample ? 'Editar' : 'Registrar' %> muestra <%= sampleNo %> · Lote <%= l.lot_number %></h1>
-<p class="muted"><%= l.product_name %> · <%= l.molde %>. Cada casilla se pone verde si está dentro de LIC–LSC y roja si está fuera. Puedes usar coma o punto decimal.</p>
+<% const l = ev.lot; const draftKey = l.id + '-' + (sample ? sample.id : 'nueva'); %>
+<a class="back" href="/lotes/<%= l.id %>">‹ Lote <%= l.lot_number %></a>
+<h1><%= sample ? 'Editar' : 'Registrar' %> muestra <%= sampleNo %></h1>
+<p class="muted"><%= l.product_name %> · <%= l.molde %>. Verde = dentro de LIC–LSC, rojo = fuera. Puedes usar coma decimal.</p>
 <% if (error) { %><div class="flash error"><%= error %></div><% } %>
-<form method="post" action="/lotes/<%= l.id %>/muestras<%= sample ? '/' + sample.id : '' %>" class="card" id="sample-form">
+<p class="flash ok" id="draft-note" hidden>Recuperé lo que habías digitado y no alcanzaste a guardar.</p>
+<form method="post" action="/lotes/<%= l.id %>/muestras<%= sample ? '/' + sample.id : '' %>" id="sample-form" data-draft="<%= draftKey %>" novalidate>
   <input type="hidden" name="sample_no" value="<%= sampleNo %>">
+  <input type="hidden" name="draft" value="<%= draftKey %>">
   <% const singles = ev.specs.filter(s => !s.points); const multi = ev.specs.filter(s => s.points); %>
   <% if (singles.length) { %>
-  <h3>Peso</h3>
-  <div class="row wrap">
-    <% for (const spec of singles) { const key = spec.id + '|'; %>
-      <label><%= spec.characteristic %> (<%= spec.unit %>) <small class="muted"><%= spec.lic %>–<%= spec.lsc %></small>
-        <input class="meas" inputmode="decimal" name="m_<%= spec.id %>_X" data-lic="<%= spec.lic %>" data-lsc="<%= spec.lsc %>" value="<%= values[key] ?? '' %>" required>
-      </label>
-    <% } %>
-  </div>
+  <fieldset class="spec">
+    <legend>Peso</legend>
+    <div class="weights">
+      <% for (const spec of singles) { const key = spec.id + '|'; %>
+        <label class="w"><span><%= spec.characteristic %> <small><%= spec.lic %>–<%= spec.lsc %> <%= spec.unit %></small></span>
+          <input class="meas" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" name="m_<%= spec.id %>_X" data-lic="<%= spec.lic %>" data-lsc="<%= spec.lsc %>" value="<%= values[key] ?? '' %>" required>
+        </label>
+      <% } %>
+    </div>
+  </fieldset>
   <% } %>
-  <% if (multi.length) { %>
-  <h3>Dimensiones (medir en los puntos A–H)</h3>
-  <table class="grid meas-table">
-    <thead><tr><th>Característica</th><th>Límites</th><% for (const p of 'ABCDEFGH') { %><th><%= p %></th><% } %></tr></thead>
-    <tbody>
-    <% for (const spec of multi) { %>
-      <tr>
-        <td><%= spec.characteristic %> (<%= spec.unit %>)</td>
-        <td class="nowrap"><%= spec.lic %>–<%= spec.lsc %></td>
-        <% for (const p of specPoints(spec)) { const key = spec.id + '|' + p; %>
-          <td><input class="meas" inputmode="decimal" name="m_<%= spec.id %>_<%= p %>" data-lic="<%= spec.lic %>" data-lsc="<%= spec.lsc %>" value="<%= values[key] ?? '' %>" required aria-label="<%= spec.characteristic %> punto <%= p %>"></td>
-        <% } %>
-      </tr>
-    <% } %>
-    </tbody>
-  </table>
+  <% for (const spec of multi) { %>
+  <fieldset class="spec">
+    <legend><%= spec.characteristic %> <small><%= spec.lic %>–<%= spec.lsc %> <%= spec.unit %></small></legend>
+    <div class="points">
+      <% for (const p of specPoints(spec)) { const key = spec.id + '|' + p; %>
+        <label class="pt"><span><%= p %></span>
+          <input class="meas" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" name="m_<%= spec.id %>_<%= p %>" data-lic="<%= spec.lic %>" data-lsc="<%= spec.lsc %>" value="<%= values[key] ?? '' %>" required aria-label="<%= spec.characteristic %> punto <%= p %>">
+        </label>
+      <% } %>
+    </div>
+  </fieldset>
   <% } %>
   <% if (!ev.specs.length) { %><p class="flash error">Este producto no tiene especificaciones. Pide al analista que las cargue en Productos.</p><% } %>
-  <p id="live" class="muted"></p>
-  <div class="actions">
+  <div class="savebar">
+    <span id="live" class="live" aria-live="polite"></span>
     <button class="btn primary">Guardar muestra</button>
-    <a class="btn" href="/lotes/<%= l.id %>">Cancelar</a>
   </div>
 </form>
-<script>
-(function () {
-  var inputs = document.querySelectorAll('input.meas');
-  function check(el) {
-    var v = parseFloat(String(el.value).replace(',', '.'));
-    el.classList.remove('in', 'out');
-    if (el.value.trim() === '' || isNaN(v)) return;
-    el.classList.add(v >= +el.dataset.lic && v <= +el.dataset.lsc ? 'in' : 'out');
-  }
-  function summary() {
-    var out = document.querySelectorAll('input.meas.out').length;
-    var filled = document.querySelectorAll('input.meas.in, input.meas.out').length;
-    document.getElementById('live').textContent = filled + ' de ' + inputs.length + ' lecturas digitadas' + (out ? ' · ' + out + ' FUERA de especificación' : '');
-  }
-  inputs.forEach(function (el, i) {
-    check(el);
-    el.addEventListener('input', function () { check(el); summary(); });
-    el.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); var n = inputs[i + 1]; if (n) n.focus(); else document.getElementById('sample-form').requestSubmit(); }
-    });
-  });
-  summary();
-})();
-</script>
 <%- include('partials/footer') %>

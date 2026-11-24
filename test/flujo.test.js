@@ -104,11 +104,21 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
 
   // Las páginas cargan para cada perfil
   for (const c of [insp, analista, jefe]) {
-    for (const p of ['/', `/lotes/${lotId}`, '/indicadores', '/indicadores?molde=Colada%20fr%C3%ADa&desde=2026-01-01', '/indicadores/lotes.csv', '/certificados', '/productos', `/productos/${prod.id}`, '/pruebas', '/cuenta']) {
+    for (const p of ['/', `/lotes/${lotId}`, '/indicadores', '/indicadores?molde=Colada%20fr%C3%ADa&desde=2026-01-01', '/indicadores/lotes.csv', '/menu', '/certificados', '/productos', `/productos/${prod.id}`, '/pruebas', '/cuenta']) {
       assert.strictEqual((await c.get(p)).status, 200, p);
     }
   }
   assert.strictEqual((await jefe.get('/usuarios')).status, 200);
+  // Archivos para instalar la app en el celular (sin iniciar sesión)
+  const anon = client(base);
+  for (const p of ['/sw.js', '/manifest.webmanifest', '/offline.html', '/static/app.js', '/static/icons/icon-192.png']) {
+    assert.strictEqual((await anon.get(p)).status, 200, p);
+  }
+  // Tras guardar una muestra, la app indica qué borrador del celular puede borrar
+  r = await insp.post('/lotes', { lot_number: 'L-BORRADOR', product_id: prod.id, production_date: '2026-11-24' });
+  const lot3 = Number(r.headers.get('location').split('/').pop());
+  r = await insp.post(`/lotes/${lot3}/muestras`, { ...form(), draft: `${lot3}-nueva` });
+  assert.strictEqual(r.headers.get('location'), `/lotes/${lot3}?guardado=${lot3}-nueva`);
   assert.strictEqual((await insp.get('/usuarios')).status, 403);
 });
 

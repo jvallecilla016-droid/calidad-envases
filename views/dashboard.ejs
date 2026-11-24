@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
 <div class="head">
   <h1>Lotes de producción</h1>
-  <a class="btn primary" href="/lotes/nuevo">+ Nuevo lote</a>
+  <a class="btn primary hide-m" href="/lotes/nuevo">+ Nuevo lote</a>
 </div>
 <div class="tabs">
   <a href="/" class="<%= !status ? 'on' : '' %>">Todos</a>
@@ -16,7 +16,16 @@
 <% if (!lots.length) { %>
   <p class="muted">No hay lotes<%= status ? ' en este estado' : '' %>. Crea uno con «Nuevo lote».</p>
 <% } else { %>
-<table class="grid">
+<div class="lot-cards">
+  <% for (const l of lots) { %>
+    <a class="lot-card" href="/lotes/<%= l.id %>">
+      <span class="lc-top"><strong><%= l.lot_number %></strong><span class="badge <%= l.status %>"><%= STATUS_NAMES[l.status] %></span></span>
+      <span class="lc-mid"><%= l.product_name %> · <%= l.molde %></span>
+      <span class="lc-bot"><%= l.production_date %><%= l.certificate_number ? ' · ' + l.certificate_number : '' %></span>
+    </a>
+  <% } %>
+</div>
+<table class="grid hide-m">
   <thead><tr><th>Lote</th><th>Producto</th><th>Molde</th><th>Fecha prod.</th><th>Estado</th><th>Certificado</th></tr></thead>
   <tbody>
   <% for (const l of lots) { %>
