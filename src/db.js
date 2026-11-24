@@ -1,7 +1,6 @@
 'use strict';
 const path = require('node:path');
 const fs = require('node:fs');
-const { DatabaseSync } = require('node:sqlite');
 const bcrypt = require('bcryptjs');
 
 const POINTS_8 = 'A,B,C,D,E,F,G,H';
@@ -14,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('inspector','analista','jefe')),
   password_hash TEXT NOT NULL,
   active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  created_at TEXT NOT NULL DEFAULT (__NOW__)
 );
 CREATE TABLE IF NOT EXISTS products (
   id INTEGER PRIMARY KEY,
@@ -57,7 +56,7 @@ CREATE TABLE IF NOT EXISTS lots (
   status TEXT NOT NULL DEFAULT 'en_proceso'
     CHECK (status IN ('en_proceso','en_revision','liberado','rechazado')),
   created_by INTEGER REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  created_at TEXT NOT NULL DEFAULT (__NOW__),
   submitted_by INTEGER REFERENCES users(id),
   submitted_at TEXT,
   decided_by INTEGER REFERENCES users(id),
@@ -69,7 +68,7 @@ CREATE TABLE IF NOT EXISTS samples (
   lot_id INTEGER NOT NULL REFERENCES lots(id) ON DELETE CASCADE,
   sample_no INTEGER NOT NULL,
   taken_by INTEGER REFERENCES users(id),
-  taken_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  taken_at TEXT NOT NULL DEFAULT (__NOW__),
   UNIQUE (lot_id, sample_no)
 );
 CREATE TABLE IF NOT EXISTS measurements (
@@ -89,7 +88,7 @@ CREATE TABLE IF NOT EXISTS test_results (
   result TEXT NOT NULL CHECK (result IN ('pasa','no_pasa')),
   observations TEXT,
   performed_by INTEGER REFERENCES users(id),
-  performed_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  performed_at TEXT NOT NULL DEFAULT (__NOW__),
   UNIQUE (lot_id, test_type_id)
 );
 CREATE TABLE IF NOT EXISTS certificates (
@@ -99,7 +98,7 @@ CREATE TABLE IF NOT EXISTS certificates (
   seq INTEGER NOT NULL,
   lot_id INTEGER UNIQUE NOT NULL REFERENCES lots(id),
   issued_by INTEGER REFERENCES users(id),
-  issued_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  issued_at TEXT NOT NULL DEFAULT (__NOW__),
   snapshot TEXT NOT NULL,
   UNIQUE (year, seq)
 );
@@ -108,7 +107,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   user_id INTEGER REFERENCES users(id),
   action TEXT NOT NULL,
   detail TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  created_at TEXT NOT NULL DEFAULT (__NOW__)
 );
 `;
 
@@ -194,45 +193,185 @@ const SEED_USERS = [
 ];
 const DEFAULT_PASSWORD = 'Calidad2026*';
 
-function open(file) {
-  const dbFile = file || process.env.DB_FILE || path.join(__dirname, '..', 'data', 'calidad.db');
-  if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(dbFile), { recursive: true });
-  const db = new DatabaseSync(dbFile);
-  db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
-  db.exec(SCHEMA);
-  seed(db);
+// Hora de Colombia (Render y Neon trabajan en UTC).
+const TZ = 'America/Bogota';
+const SQLITE_NOW = "datetime('now','localtime')";
+const PG_NOW = `to_char(now() AT TIME ZONE '${TZ}', 'YYYY-MM-DD HH24:MI:SS')`;
+
+function yearNow() {
+  return Number(new Intl.DateTimeFormat('en', { timeZone: TZ, year: 'numeric' }).format(new Date()));
+}
+
+// ---------------------------------------------------------------------------
+// Acceso a datos con la misma interfaz para SQLite (local y pruebas) y
+// PostgreSQL (Neon, en internet). Todo es async:
+//   await db.prepare(sql).get(...args) / .all(...args) / .run(...args)
+//   await tx(db, async (db) => { ... })
+// En el SQL se escribe ? para los parámetros y NOW() para la hora actual.
+// ---------------------------------------------------------------------------
+
+class SqliteStore {
+  constructor(file) {
+    const { DatabaseSync } = require('node:sqlite');
+    this.kind = 'sqlite';
+    this.raw = new DatabaseSync(file);
+    this.raw.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
+    this.lock = Promise.resolve();
+    this.inTx = false;
+  }
+
+  sql(q) { return q.replace(/\bNOW\(\)/g, SQLITE_NOW); }
+
+  // Fuera de una transacción, cada consulta espera a que termine la transacción en curso.
+  async wait() { if (!this.inTx) await this.lock; }
+
+  prepare(q) {
+    const st = () => this.raw.prepare(this.sql(q));
+    return {
+      get: async (...a) => { await this.wait(); return st().get(...a); },
+      all: async (...a) => { await this.wait(); return st().all(...a); },
+      run: async (...a) => {
+        await this.wait();
+        const r = st().run(...a);
+        return { lastInsertRowid: Number(r.lastInsertRowid), changes: Number(r.changes) };
+      },
+    };
+  }
+
+  async exec(q) { await this.wait(); this.raw.exec(this.sql(q)); }
+
+  async transaction(fn) {
+    const prev = this.lock;
+    let release;
+    this.lock = new Promise((r) => { release = r; });
+    await prev;
+    const t = Object.create(this);
+    t.inTx = true;
+    this.raw.exec('BEGIN');
+    try {
+      const out = await fn(t);
+      this.raw.exec('COMMIT');
+      return out;
+    } catch (e) {
+      this.raw.exec('ROLLBACK');
+      throw e;
+    } finally {
+      release();
+    }
+  }
+
+  async close() { this.raw.close(); }
+}
+
+class PgStore {
+  constructor(url) {
+    const pg = require('pg');
+    // COUNT/SUM devuelven bigint/numeric: los convertimos a número de JS.
+    pg.types.setTypeParser(20, Number);
+    pg.types.setTypeParser(1700, Number);
+    const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
+    this.kind = 'pg';
+    this.pool = new pg.Pool({
+      connectionString: url,
+      ssl: local || /sslmode=disable/.test(url) ? false : { rejectUnauthorized: false },
+      max: Number(process.env.PG_POOL_MAX || 5),
+    });
+    this.client = null;
+  }
+
+  sql(q) {
+    let i = 0;
+    let out = q.replace(/\?/g, () => `$${++i}`)
+      .replace(/\bNOW\(\)/g, PG_NOW)
+      .replace(/\bLIKE\b/g, 'ILIKE');
+    if (/^\s*INSERT\b/i.test(out) && !/\bRETURNING\b/i.test(out)) out += ' RETURNING id';
+    return out;
+  }
+
+  query(q, args) { return (this.client || this.pool).query(this.sql(q), args); }
+
+  prepare(q) {
+    return {
+      get: async (...a) => (await this.query(q, a)).rows[0],
+      all: async (...a) => (await this.query(q, a)).rows,
+      run: async (...a) => {
+        const r = await this.query(q, a);
+        return { lastInsertRowid: r.rows[0] ? Number(r.rows[0].id) : undefined, changes: r.rowCount };
+      },
+    };
+  }
+
+  async exec(q) { await (this.client || this.pool).query(q.replace(/\bNOW\(\)/g, PG_NOW)); }
+
+  async transaction(fn) {
+    const client = await this.pool.connect();
+    const t = Object.create(this);
+    t.client = client;
+    try {
+      await client.query('BEGIN');
+      const out = await fn(t);
+      await client.query('COMMIT');
+      return out;
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async close() { await this.pool.end(); }
+}
+
+const TABLES = ['audit_log', 'certificates', 'test_results', 'measurements', 'samples', 'lots', 'test_types', 'specs', 'products', 'users', 'session'];
+
+function pgSchema() {
+  return SCHEMA
+    .replace(/id INTEGER PRIMARY KEY/g, 'id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY')
+    .replace(/\bREAL\b/g, 'DOUBLE PRECISION');
+}
+
+// destino: URL postgres://... o archivo SQLite (':memory:' para pruebas).
+// Por defecto usa DATABASE_URL si existe; si no, DB_FILE o data/calidad.db.
+// reset: true vacía la base PostgreSQL de pruebas antes de empezar.
+async function open(target, { reset = false } = {}) {
+  const dest = target || process.env.DATABASE_URL || process.env.DB_FILE || path.join(__dirname, '..', 'data', 'calidad.db');
+  let db;
+  if (/^postgres(ql)?:\/\//.test(dest)) {
+    db = new PgStore(dest);
+    if (reset) await db.exec(`DROP TABLE IF EXISTS ${TABLES.join(', ')}`);
+    await db.exec(pgSchema().replace(/__NOW__/g, 'NOW()'));
+  } else {
+    if (dest !== ':memory:') fs.mkdirSync(path.dirname(dest), { recursive: true });
+    db = new SqliteStore(dest);
+    await db.exec(SCHEMA.replace(/__NOW__/g, 'NOW()'));
+  }
+  await seed(db);
   return db;
 }
 
-function seed(db) {
-  const count = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
-  if (count > 0) return;
-  tx(db, () => {
-    const insUser = db.prepare('INSERT INTO users (username, full_name, role, password_hash) VALUES (?,?,?,?)');
+async function seed(db) {
+  const { n } = await db.prepare('SELECT COUNT(*) AS n FROM users').get();
+  if (n > 0) return;
+  await tx(db, async (db) => {
     const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
-    for (const [u, n, r] of SEED_USERS) insUser.run(u, n, r, hash);
-
-    const insProd = db.prepare('INSERT INTO products (code, name, referencia, capacidad, molde, uso) VALUES (?,?,?,?,?,?)');
-    const insSpec = db.prepare('INSERT INTO specs (product_id, component, characteristic, unit, points, lic, lcc, lsc, sort) VALUES (?,?,?,?,?,?,?,?,?)');
-    for (const p of SEED_PRODUCTS) {
-      const r = insProd.run(p.code, p.name, p.referencia, p.capacidad, p.molde, 'Pintura / Alimentos');
-      p.specs.forEach((s, i) => insSpec.run(r.lastInsertRowid, ...s, i));
+    for (const [u, name, r] of SEED_USERS) {
+      await db.prepare('INSERT INTO users (username, full_name, role, password_hash) VALUES (?,?,?,?)').run(u, name, r, hash);
     }
-    const insTest = db.prepare('INSERT INTO test_types (code, name, description) VALUES (?,?,?)');
-    for (const t of SEED_TESTS) insTest.run(...t);
+    for (const p of SEED_PRODUCTS) {
+      const r = await db.prepare('INSERT INTO products (code, name, referencia, capacidad, molde, uso) VALUES (?,?,?,?,?,?)')
+        .run(p.code, p.name, p.referencia, p.capacidad, p.molde, 'Pintura / Alimentos');
+      for (const [i, s] of p.specs.entries()) {
+        await db.prepare('INSERT INTO specs (product_id, component, characteristic, unit, points, lic, lcc, lsc, sort) VALUES (?,?,?,?,?,?,?,?,?)')
+          .run(r.lastInsertRowid, ...s, i);
+      }
+    }
+    for (const t of SEED_TESTS) await db.prepare('INSERT INTO test_types (code, name, description) VALUES (?,?,?)').run(...t);
   });
 }
 
 function tx(db, fn) {
-  db.exec('BEGIN');
-  try {
-    const out = fn();
-    db.exec('COMMIT');
-    return out;
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
-  }
+  return db.transaction(fn);
 }
 
-module.exports = { open, tx, POINTS_8, DEFAULT_PASSWORD };
+module.exports = { open, tx, yearNow, POINTS_8, DEFAULT_PASSWORD };

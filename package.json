@@ -4,16 +4,20 @@
   "description": "Control de calidad y liberación de lotes de envases plásticos",
   "main": "src/server.js",
   "private": true,
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
-    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "connect-pg-simple": "^10.0.0",
     "ejs": "^3.1.10",
-    "express": "^4.21.2",
+    "express": "^5.3.0",
     "express-session": "^1.18.1",
-    "pdfkit": "^0.15.2"
+    "pdfkit": "^0.15.2",
+    "pg": "^8.23.1"
   }
 }

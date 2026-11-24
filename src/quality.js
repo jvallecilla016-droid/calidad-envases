@@ -1,6 +1,6 @@
 'use strict';
 // Reglas de conformidad del lote y emisión del certificado con consecutivo.
-const { tx } = require('./db');
+const { tx, yearNow } = require('./db');
 
 function specPoints(spec) {
   return spec.points ? spec.points.split(',').map((p) => p.trim()).filter(Boolean) : [''];
@@ -10,7 +10,7 @@ function inLimits(value, lic, lsc) {
   return value >= lic && value <= lsc;
 }
 
-function getLot(db, lotId) {
+async function getLot(db, lotId) {
   return db.prepare(`
     SELECT l.*, p.code AS product_code, p.name AS product_name, p.molde, p.referencia, p.capacidad,
       uc.full_name AS created_by_name, us.full_name AS submitted_by_name, ud.full_name AS decided_by_name,
@@ -25,21 +25,20 @@ function getLot(db, lotId) {
 }
 
 // Evalúa el lote completo: mediciones de todas las muestras + pruebas de liberación.
-function evaluateLot(db, lotId) {
-  const lot = getLot(db, lotId);
+async function evaluateLot(db, lotId) {
+  const lot = await getLot(db, lotId);
   if (!lot) return null;
-  const specs = db.prepare('SELECT * FROM specs WHERE product_id = ? ORDER BY sort, id').all(lot.product_id);
-  const samples = db.prepare(`
+  const specs = await db.prepare('SELECT * FROM specs WHERE product_id = ? ORDER BY sort, id').all(lot.product_id);
+  const samples = await db.prepare(`
     SELECT s.*, u.full_name AS taken_by_name FROM samples s LEFT JOIN users u ON u.id = s.taken_by
     WHERE s.lot_id = ? ORDER BY s.sample_no`).all(lotId);
-  const measStmt = db.prepare('SELECT * FROM measurements WHERE sample_id = ?');
 
   const problems = [];
   const specSummary = specs.map((s) => ({ spec: s, values: [], out: 0 }));
   const bySpecId = new Map(specSummary.map((x) => [x.spec.id, x]));
 
   for (const sample of samples) {
-    const rows = measStmt.all(sample.id);
+    const rows = await db.prepare('SELECT * FROM measurements WHERE sample_id = ?').all(sample.id);
     const map = new Map(rows.map((m) => [`${m.spec_id}|${m.point}`, m]));
     sample.values = {};
     sample.ok = true;
@@ -75,8 +74,8 @@ function evaluateLot(db, lotId) {
     x.ok = v.length > 0 && x.out === 0;
   }
 
-  const testTypes = db.prepare('SELECT * FROM test_types WHERE active = 1 ORDER BY id').all();
-  const results = db.prepare(`
+  const testTypes = await db.prepare('SELECT * FROM test_types WHERE active = 1 ORDER BY id').all();
+  const results = await db.prepare(`
     SELECT r.*, t.name AS test_name, t.code AS test_code, u.full_name AS performed_by_name
     FROM test_results r JOIN test_types t ON t.id = r.test_type_id
     LEFT JOIN users u ON u.id = r.performed_by WHERE r.lot_id = ?`).all(lotId);
@@ -110,25 +109,27 @@ function evaluateLot(db, lotId) {
   };
 }
 
-function nextCertificateNumber(db, year) {
-  const row = db.prepare('SELECT COALESCE(MAX(seq), 0) + 1 AS seq FROM certificates WHERE year = ?').get(year);
+async function nextCertificateNumber(db, year) {
+  const row = await db.prepare('SELECT COALESCE(MAX(seq), 0) + 1 AS seq FROM certificates WHERE year = ?').get(year);
   return { seq: row.seq, number: `CL-${year}-${String(row.seq).padStart(4, '0')}` };
 }
 
 // Libera el lote y emite el certificado en una sola transacción.
 function releaseLot(db, lotId, user, notes) {
-  return tx(db, () => {
-    const ev = evaluateLot(db, lotId);
+  return tx(db, async (db) => {
+    const ev = await evaluateLot(db, lotId);
     if (!ev) throw new Error('Lote no encontrado');
     if (ev.lot.status !== 'en_revision') throw new Error('El lote debe estar en revisión para liberarse');
     if (!ev.conforme) throw new Error('El lote no cumple todas las especificaciones y pruebas');
 
-    const year = new Date().getFullYear();
-    const { seq, number } = nextCertificateNumber(db, year);
-    db.prepare(`UPDATE lots SET status = 'liberado', decided_by = ?, decided_at = datetime('now','localtime'),
+    const year = yearNow();
+    // Evita que dos liberaciones simultáneas tomen el mismo consecutivo.
+    if (db.kind === 'pg') await db.exec('LOCK TABLE certificates IN SHARE ROW EXCLUSIVE MODE');
+    const { seq, number } = await nextCertificateNumber(db, year);
+    await db.prepare(`UPDATE lots SET status = 'liberado', decided_by = ?, decided_at = NOW(),
       decision_notes = ? WHERE id = ?`).run(user.id, notes || null, lotId);
 
-    const lot = getLot(db, lotId);
+    const lot = await getLot(db, lotId);
     const snapshot = {
       number,
       issued_at: new Date().toISOString(),
@@ -146,9 +147,9 @@ function releaseLot(db, lotId, user, notes) {
         performed_by: t.result.performed_by_name, performed_at: t.result.performed_at,
       })),
     };
-    db.prepare('INSERT INTO certificates (number, year, seq, lot_id, issued_by, snapshot) VALUES (?,?,?,?,?,?)')
+    await db.prepare('INSERT INTO certificates (number, year, seq, lot_id, issued_by, snapshot) VALUES (?,?,?,?,?,?)')
       .run(number, year, seq, lotId, user.id, JSON.stringify(snapshot));
-    db.prepare('INSERT INTO audit_log (user_id, action, detail) VALUES (?,?,?)')
+    await db.prepare('INSERT INTO audit_log (user_id, action, detail) VALUES (?,?,?)')
       .run(user.id, 'liberar_lote', `${lot.lot_number} → ${number}`);
     return number;
   });

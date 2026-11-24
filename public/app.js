@@ -1,0 +1,85 @@
+// Comportamiento del lado del celular: instalación, borradores y validación en vivo.
+(function () {
+  'use strict';
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+  }
+
+  // Botón «Instalar app» (Android / Chrome).
+  var deferred = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault(); deferred = e;
+    var card = document.getElementById('install-card'); if (card) card.hidden = false;
+  });
+  document.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'install-btn' && deferred) {
+      deferred.prompt(); deferred.userChoice.finally(function () { deferred = null; document.getElementById('install-card').hidden = true; });
+    }
+  });
+
+  function safe(fn) { try { return fn(); } catch (e) { return null; } }
+
+  // Borrador: lo digitado en una muestra se guarda en el celular hasta que el servidor confirma.
+  var params = new URLSearchParams(location.search);
+  var done = params.get('guardado');
+  if (done) safe(function () { localStorage.removeItem('borrador:' + done); });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var form = document.querySelector('form[data-draft]');
+    var inputs = document.querySelectorAll('input.meas');
+    var key = form ? 'borrador:' + form.dataset.draft : null;
+
+    if (form && key) {
+      var saved = safe(function () { return JSON.parse(localStorage.getItem(key) || 'null'); });
+      var anyFilled = Array.prototype.some.call(inputs, function (i) { return i.value.trim() !== ''; });
+      if (saved && !anyFilled) {
+        inputs.forEach(function (i) { if (saved[i.name] !== undefined) i.value = saved[i.name]; });
+        var note = document.getElementById('draft-note'); if (note) note.hidden = false;
+      }
+      form.addEventListener('input', function () {
+        var data = {}; inputs.forEach(function (i) { if (i.value.trim() !== '') data[i.name] = i.value; });
+        safe(function () { localStorage.setItem(key, JSON.stringify(data)); });
+      });
+      form.addEventListener('submit', function (e) {
+        if (!navigator.onLine) {
+          e.preventDefault();
+          alertBox('Sin señal: la muestra NO se ha enviado. Queda guardada en el celular; toca Guardar cuando vuelva la conexión.');
+        }
+      });
+    }
+
+    function check(el) {
+      var v = parseFloat(String(el.value).replace(',', '.'));
+      el.classList.remove('in', 'out');
+      if (el.value.trim() === '' || isNaN(v)) return;
+      el.classList.add(v >= +el.dataset.lic && v <= +el.dataset.lsc ? 'in' : 'out');
+    }
+    function summary() {
+      var live = document.getElementById('live'); if (!live) return;
+      var out = document.querySelectorAll('input.meas.out').length;
+      var filled = document.querySelectorAll('input.meas.in, input.meas.out').length;
+      live.textContent = filled + ' de ' + inputs.length + ' lecturas' + (out ? ' · ' + out + ' FUERA' : '');
+      live.classList.toggle('bad', out > 0);
+      document.querySelectorAll('fieldset.spec').forEach(function (fs) {
+        var o = fs.querySelectorAll('input.meas.out').length, all = fs.querySelectorAll('input.meas').length, f = fs.querySelectorAll('input.meas.in, input.meas.out').length;
+        fs.classList.toggle('has-out', o > 0); fs.classList.toggle('done', f === all && o === 0);
+      });
+    }
+    inputs.forEach(function (el, i) {
+      check(el);
+      el.addEventListener('input', function () { check(el); summary(); });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); var n = inputs[i + 1]; if (n) n.focus(); else if (form) form.requestSubmit(); }
+      });
+    });
+    summary();
+  });
+
+  function alertBox(msg) {
+    var d = document.getElementById('net-alert');
+    if (!d) { d = document.createElement('div'); d.id = 'net-alert'; d.className = 'flash error'; d.setAttribute('role', 'alert'); var m = document.querySelector('main'); m.insertBefore(d, m.firstChild); }
+    d.textContent = msg; window.scrollTo(0, 0);
+  }
+  window.addEventListener('offline', function () { document.body.classList.add('offline'); });
+  window.addEventListener('online', function () { document.body.classList.remove('offline'); });
+})();

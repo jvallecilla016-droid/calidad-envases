@@ -2,16 +2,25 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title><%= title %> · Calidad</title>
+<meta name="theme-color" content="#1f3b57">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Calidad">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
 <link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script>
 </head>
-<body>
+<body class="<%= user ? 'auth' : '' %>">
 <% if (user) { %>
 <header class="top">
-  <div class="brand"><strong>Calidad</strong> <span><%= company %></span></div>
-  <nav>
+  <a class="brand" href="/"><strong>Calidad</strong> <span><%= company %></span></a>
+  <nav class="desk">
     <a href="/">Lotes</a>
+    <a href="/indicadores">Indicadores</a>
     <a href="/certificados">Certificados</a>
     <a href="/productos">Productos</a>
     <a href="/pruebas">Pruebas</a>
@@ -22,6 +31,12 @@
     <form method="post" action="/logout" class="inline"><button class="link">Salir</button></form>
   </div>
 </header>
+<nav class="tabbar" aria-label="Menú principal">
+  <a href="/" class="<%= typeof tab !== 'undefined' && tab === 'lotes' ? 'on' : '' %>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Lotes</a>
+  <a href="/lotes/nuevo" class="add"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nuevo</a>
+  <a href="/indicadores" class="<%= typeof tab !== 'undefined' && tab === 'indicadores' ? 'on' : '' %>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Indicadores</a>
+  <a href="/menu" class="<%= typeof tab !== 'undefined' && tab === 'menu' ? 'on' : '' %>"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>Más</a>
+</nav>
 <% } %>
 <main>
-<% if (flash) { %><div class="flash <%= flash.type %>"><%= flash.msg %></div><% } %>
+<% if (flash) { %><div class="flash <%= flash.type %>" role="status"><%= flash.msg %></div><% } %>

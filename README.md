@@ -10,6 +10,7 @@ Aplicación web para registrar las mediciones de calidad de cada lote de producc
 - **Pruebas de liberación**: impacto y filtración (Pasa / No pasa + observaciones). Desde el menú *Pruebas* se pueden agregar más; toda prueba activa se vuelve obligatoria.
 - **Flujo de aprobación**: En proceso → En revisión → Liberado o Rechazado.
 - **Certificado PDF** con consecutivo único por año (`CL-2026-0001`, `CL-2026-0002`…), con el resumen de especificaciones, las pruebas, las firmas y un anexo con todas las lecturas por punto. El certificado guarda una foto de los datos al momento de liberar, así que no cambia si después se editan las especificaciones.
+- **Indicadores** (menú *Indicadores*): lotes liberados y rechazados, porcentaje de cumplimiento, lotes por semana, cumplimiento por producto, lecturas fuera de LIC–LSC por punto A–H y por característica, resultados de impacto y filtración, y el detalle de cada lectura fuera de especificación. Se calcula en vivo con los lotes de la base de datos y se filtra por producto, tipo de molde y rango de fechas de producción. El botón *Descargar lotes (CSV)* exporta los lotes filtrados para abrirlos en Excel.
 - **Registro de auditoría** de cada acción (tabla `audit_log`).
 
 ## Perfiles
@@ -32,7 +33,9 @@ npm install
 npm start
 ```
 
-Abrir http://localhost:3000. Los datos quedan en `data/calidad.db`. **Hagan copia de ese archivo** con frecuencia.
+Abrir http://localhost:3000. En el computador, sin `DATABASE_URL`, los datos quedan en `data/calidad.db` (SQLite).
+
+**Para usarla desde los celulares con una base de datos central en internet**, sigue [docs/PUBLICAR-EN-INTERNET.md](docs/PUBLICAR-EN-INTERNET.md) (Render + Neon, plan gratis).
 
 Para que otros equipos de la planta entren, abran `http://IP-DEL-EQUIPO:3000` desde la misma red.
 
@@ -43,7 +46,8 @@ Variables opcionales:
 | `PORT` | Puerto (por defecto 3000) |
 | `COMPANY_NAME` | Nombre de la empresa en el encabezado y el certificado |
 | `SESSION_SECRET` | Clave fija para las sesiones (si no se pone, al reiniciar el servidor todos deben volver a ingresar) |
-| `DB_FILE` | Ruta del archivo de base de datos |
+| `DATABASE_URL` | Cadena de conexión PostgreSQL (Neon). Si existe, la app usa PostgreSQL y guarda ahí también las sesiones |
+| `DB_FILE` | Ruta del archivo SQLite cuando no hay `DATABASE_URL` |
 
 Ejemplo en Windows (PowerShell):
 
@@ -55,6 +59,12 @@ $env:COMPANY_NAME="Envases XYZ S.A.S."; $env:SESSION_SECRET="una-frase-larga-sec
 
 ```bash
 npm test
+```
+
+Para correrlas contra PostgreSQL, usa una base de pruebas vacía (las pruebas la borran):
+
+```bash
+TEST_DATABASE_URL=postgres://usuario:clave@localhost/calidad_test npm test
 ```
 
 ## Supuestos sobre los datos precargados

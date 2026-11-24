@@ -44,7 +44,7 @@
     <h2>1. Especificaciones (resumen)</h2>
     <% if (open) { %><a class="btn primary" href="/lotes/<%= l.id %>/muestras/nueva">+ Registrar muestra</a><% } %>
   </div>
-  <table class="grid">
+  <div class="hscroll"><table class="grid">
     <thead><tr><th>Característica</th><th>Unid.</th><th>Puntos</th><th>LIC</th><th>LCC</th><th>LSC</th><th>Lecturas</th><th>Mín</th><th>Máx</th><th>Prom.</th><th>Resultado</th></tr></thead>
     <tbody>
     <% for (const x of ev.specSummary) { %>
@@ -57,13 +57,13 @@
       </tr>
     <% } %>
     </tbody>
-  </table>
+  </table></div>
 
   <% for (const s of ev.samples) { %>
     <details class="sample">
       <summary>Muestra <%= s.sample_no %> · <%= s.taken_by_name %> · <%= s.taken_at %>
         <span class="tag <%= s.ok && s.complete ? 'ok' : 'bad' %>"><%= !s.complete ? 'Incompleta' : (s.ok ? 'Conforme' : 'No conforme') %></span></summary>
-      <table class="grid compact">
+      <div class="hscroll"><table class="grid compact">
         <thead><tr><th>Característica</th><% for (const p of 'ABCDEFGH') { %><th><%= p %></th><% } %></tr></thead>
         <tbody>
         <% for (const spec of ev.specs) { %>
@@ -75,7 +75,7 @@
           <% } %></tr>
         <% } %>
         </tbody>
-      </table>
+      </table></div>
       <% if (open) { %>
         <div class="actions">
           <a class="btn small" href="/lotes/<%= l.id %>/muestras/<%= s.id %>/editar">Editar</a>
@@ -90,7 +90,7 @@
 
 <section>
   <h2>2. Pruebas de liberación</h2>
-  <table class="grid">
+  <div class="tests-wrap"><table class="grid tests">
     <thead><tr><th>Prueba</th><th>Resultado</th><th>Observaciones</th><th>Realizó</th><% if (open) { %><th>Registrar</th><% } %></tr></thead>
     <tbody>
     <% for (const t of ev.tests) { const r = t.result; %>
@@ -104,8 +104,10 @@
           <% if (t.type.active) { %>
           <form method="post" action="/lotes/<%= l.id %>/pruebas" class="test-form">
             <input type="hidden" name="test_type_id" value="<%= t.type.id %>">
-            <label class="radio"><input type="radio" name="result" value="pasa" required <%= r && r.result === 'pasa' ? 'checked' : '' %>> Pasa</label>
-            <label class="radio"><input type="radio" name="result" value="no_pasa" <%= r && r.result === 'no_pasa' ? 'checked' : '' %>> No pasa</label>
+            <div class="seg2" role="radiogroup" aria-label="Resultado de <%= t.type.name %>">
+              <label class="opt ok"><input type="radio" name="result" value="pasa" required <%= r && r.result === 'pasa' ? 'checked' : '' %>><span>Pasa</span></label>
+              <label class="opt bad"><input type="radio" name="result" value="no_pasa" <%= r && r.result === 'no_pasa' ? 'checked' : '' %>><span>No pasa</span></label>
+            </div>
             <input name="observations" placeholder="Observaciones" value="<%= r ? (r.observations || '') : '' %>">
             <button class="btn small">Guardar</button>
           </form>
@@ -115,7 +117,7 @@
       </tr>
     <% } %>
     </tbody>
-  </table>
+  </table></div>
 </section>
 
 <section>

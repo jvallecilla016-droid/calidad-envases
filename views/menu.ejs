@@ -1,0 +1,18 @@
+<%- include('partials/header') %>
+<h1>Menú</h1>
+<p class="muted"><%= user.full_name %> · <%= ROLE_NAMES[user.role] %></p>
+<div class="menu-list">
+  <a href="/certificados">Certificados de liberación<span>›</span></a>
+  <a href="/productos">Productos y especificaciones<span>›</span></a>
+  <a href="/pruebas">Pruebas de liberación<span>›</span></a>
+  <% if (user.role === 'jefe') { %><a href="/usuarios">Usuarios<span>›</span></a><% } %>
+  <a href="/cuenta">Mi cuenta y contraseña<span>›</span></a>
+</div>
+<div class="card" id="install-card" hidden>
+  <strong>Instalar en este celular</strong>
+  <p class="muted">Queda como una app con su ícono en la pantalla de inicio.</p>
+  <button class="btn primary" id="install-btn" type="button">Instalar app</button>
+</div>
+<p class="muted small" id="install-help">Para instalarla: en Chrome toca ⋮ y luego «Agregar a pantalla de inicio». En iPhone, en Safari toca Compartir y luego «Agregar a inicio».</p>
+<form method="post" action="/logout"><button class="btn danger wide">Cerrar sesión</button></form>
+<%- include('partials/footer') %>
