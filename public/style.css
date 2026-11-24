@@ -152,3 +152,7 @@ body.offline::before { content: "Sin señal · lo que guardes no llegará hasta 
 .impactos span.no { background: #fdecea; color: var(--bad); }
 @media (max-width: 760px) { .checklist { min-width: 0; } .chk-row .seg2 { width: auto; flex: 1; } }
 .casillas-form { display:flex; gap:6px; align-items:flex-end; flex-wrap:wrap; margin-top:6px; } .casillas-form label { font-size:.75rem; margin:0; } .casillas-form input { width:70px; margin:0; }
+.danger-zone { margin-top: 24px; }
+.danger-zone summary { color: var(--bad); cursor: pointer; font-weight: 600; }
+.user-actions { white-space: nowrap; }
+.user-actions form { display: inline-block; margin: 2px; }

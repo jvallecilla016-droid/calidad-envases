@@ -180,4 +180,18 @@
     <p>Lote rechazado. Motivo: <%= l.decision_notes %></p>
   <% } %>
 </section>
+
+<% if (role === 'jefe') { %>
+<section>
+  <details class="danger-zone">
+    <summary>Eliminar este lote</summary>
+    <form method="post" action="/lotes/<%= l.id %>/eliminar" class="card narrow">
+      <p>Se borran el lote, sus muestras, mediciones y pruebas<%= l.certificate_number ? `, y el certificado ${l.certificate_number}` : '' %>. No se puede deshacer.</p>
+      <label>Para confirmar, escribe el número de lote <strong><%= l.lot_number %></strong>
+        <input name="confirm" required autocomplete="off"></label>
+      <button class="btn danger">Eliminar lote</button>
+    </form>
+  </details>
+</section>
+<% } %>
 <%- include('partials/footer') %>
