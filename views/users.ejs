@@ -1,6 +1,7 @@
 <%- include('partials/header') %>
 <h1>Usuarios</h1>
 <p class="muted">Perfiles: <strong>Aprendiz / Operario</strong> registra muestras y pruebas. <strong>Auxiliar de calidad</strong> además mantiene productos y pruebas y envía lotes a aprobación. <strong>Jefe de calidad</strong> además aprueba o rechaza lotes y administra usuarios.</p>
+<p class="muted">«Eliminar» borra al usuario si no tiene registros de calidad. Si ya registró lotes, muestras o pruebas, queda desactivado para no perder quién hizo cada cosa.</p>
 <table class="grid">
   <thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil</th><th>Activo</th><th>Nueva contraseña</th><th></th></tr></thead>
   <tbody>
@@ -11,7 +12,8 @@
       <td><select form="u<%= u.id %>" name="role"><% for (const [k, v] of Object.entries(ROLE_NAMES)) { %><option value="<%= k %>" <%= u.role === k ? 'selected' : '' %>><%= v %></option><% } %></select></td>
       <td><input form="u<%= u.id %>" type="checkbox" name="active" value="1" <%= u.active ? 'checked' : '' %>></td>
       <td><input form="u<%= u.id %>" type="password" name="password" minlength="8" placeholder="(sin cambio)" autocomplete="new-password"></td>
-      <td><form id="u<%= u.id %>" method="post" action="/usuarios/<%= u.id %>"><button class="btn small">Guardar</button></form></td>
+      <td class="user-actions"><form id="u<%= u.id %>" method="post" action="/usuarios/<%= u.id %>"><button class="btn small">Guardar</button></form>
+        <% if (u.id !== user.id) { %><form method="post" action="/usuarios/<%= u.id %>/eliminar" data-confirm="¿Eliminar el usuario <%= u.username %> (<%= u.full_name %>)?"><button class="btn small danger">Eliminar</button></form><% } %></td>
     </tr>
   <% } %>
   </tbody>

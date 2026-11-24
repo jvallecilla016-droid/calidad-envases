@@ -185,3 +185,40 @@ test('usuarios del equipo deben cambiar la contraseña inicial', async (t) => {
   assert.strictEqual((await db.prepare("SELECT must_change FROM users WHERE username = 'lgomez'").get()).must_change, 0);
   assert.strictEqual((await c.get('/usuarios')).status, 200, 'Luis administra usuarios');
 });
+
+test('el jefe elimina lotes de prueba y usuarios sin registros', async (t) => {
+  const db = await testDb();
+  const server = createApp(db).listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const login = async (u) => { const c = client(base); await c.post('/login', { username: u, password: DEFAULT_PASSWORD }); return c; };
+  const jefe = await login('jefe');
+  const insp = await login('inspector');
+  const prod = await db.prepare("SELECT id FROM products WHERE code = 'REF04-CF'").get();
+  await insp.post('/lotes', { lot_number: 'PRUEBA-1', product_id: prod.id, production_date: '2026-11-24' });
+  const lot = await db.prepare("SELECT id FROM lots WHERE lot_number = 'PRUEBA-1'").get();
+  await insp.post(`/lotes/${lot.id}/muestras`, {});
+
+  // El inspector no puede eliminar; el jefe debe escribir el número exacto
+  assert.strictEqual((await insp.post(`/lotes/${lot.id}/eliminar`, { confirm: 'PRUEBA-1' })).status, 403);
+  await jefe.post(`/lotes/${lot.id}/eliminar`, { confirm: 'otro' });
+  assert.ok(await db.prepare('SELECT 1 FROM lots WHERE id = ?').get(lot.id));
+
+  // Usuario con un lote a su nombre: se desactiva, no se borra
+  const inspId = (await db.prepare("SELECT id FROM users WHERE username = 'inspector'").get()).id;
+  await jefe.post(`/usuarios/${inspId}/eliminar`);
+  assert.strictEqual((await db.prepare('SELECT active FROM users WHERE id = ?').get(inspId)).active, 0);
+
+  await jefe.post(`/lotes/${lot.id}/eliminar`, { confirm: 'PRUEBA-1' });
+  assert.strictEqual(await db.prepare('SELECT 1 FROM lots WHERE id = ?').get(lot.id), undefined);
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) AS n FROM samples').get()).n, 0);
+
+  // Sin registros de calidad: se elimina y el historial conserva su nombre
+  await jefe.post(`/usuarios/${inspId}/eliminar`);
+  assert.strictEqual(await db.prepare('SELECT 1 FROM users WHERE id = ?').get(inspId), undefined);
+  assert.ok(await db.prepare("SELECT 1 FROM audit_log WHERE detail LIKE '[inspector]%'").get());
+  // Nadie puede eliminarse a sí mismo
+  const jefeId = (await db.prepare("SELECT id FROM users WHERE username = 'jefe'").get()).id;
+  await jefe.post(`/usuarios/${jefeId}/eliminar`);
+  assert.ok(await db.prepare('SELECT 1 FROM users WHERE id = ?').get(jefeId));
+});

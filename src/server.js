@@ -265,6 +265,22 @@ function createApp(db) {
     res.redirect(`/lotes/${req.ev.lot.id}`);
   });
 
+  // Eliminar un lote (por ejemplo, uno de prueba). Solo el jefe y escribiendo el número de lote.
+  app.post('/lotes/:id/eliminar', role('jefe'), loadLot, async (req, res) => {
+    const lot = req.ev.lot;
+    if (String(req.body.confirm || '').trim() !== lot.lot_number) {
+      flash(req, 'error', `Para eliminar escribe exactamente el número de lote: ${lot.lot_number}`);
+      return res.redirect(`/lotes/${lot.id}`);
+    }
+    await tx(db, async (db) => {
+      await db.prepare('DELETE FROM certificates WHERE lot_id = ?').run(lot.id);
+      await db.prepare('DELETE FROM lots WHERE id = ?').run(lot.id);
+    });
+    await audit(req, 'eliminar_lote', `${lot.lot_number}${lot.certificate_number ? ` (certificado ${lot.certificate_number})` : ''}`);
+    flash(req, 'ok', `Lote ${lot.lot_number} eliminado`);
+    res.redirect('/');
+  });
+
   // Flujo de aprobación
   app.post('/lotes/:id/enviar', role('analista', 'jefe'), loadLot, editable, async (req, res) => {
     if (!req.ev.complete) {
@@ -473,6 +489,35 @@ function createApp(db) {
       await audit(req, 'crear_usuario', username);
       flash(req, 'ok', `Usuario ${username} creado`);
     }
+    res.redirect('/usuarios');
+  });
+  // Eliminar usuario: solo si no tiene lotes, muestras, pruebas ni certificados a su nombre.
+  // Si los tiene, se desactiva para no perder quién hizo cada registro.
+  app.post('/usuarios/:id/eliminar', role('jefe'), async (req, res) => {
+    const id = Number(req.params.id);
+    const u = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!u) return res.redirect('/usuarios');
+    if (id === req.session.user.id) {
+      flash(req, 'error', 'No puedes eliminar tu propio usuario');
+      return res.redirect('/usuarios');
+    }
+    const { n } = await db.prepare(`SELECT
+      (SELECT COUNT(*) FROM lots WHERE created_by = ? OR submitted_by = ? OR decided_by = ?) +
+      (SELECT COUNT(*) FROM samples WHERE taken_by = ?) +
+      (SELECT COUNT(*) FROM test_results WHERE performed_by = ?) +
+      (SELECT COUNT(*) FROM certificates WHERE issued_by = ?) AS n`).get(id, id, id, id, id, id);
+    if (n > 0) {
+      await db.prepare('UPDATE users SET active = 0 WHERE id = ?').run(id);
+      await audit(req, 'desactivar_usuario', u.username);
+      flash(req, 'error', `${u.full_name} tiene ${n} registro(s) de calidad a su nombre. Se desactivó (ya no puede entrar) en vez de eliminarse. Si eran lotes de prueba, elimina esos lotes y vuelve a intentarlo.`);
+      return res.redirect('/usuarios');
+    }
+    await tx(db, async (db) => {
+      await db.prepare("UPDATE audit_log SET user_id = NULL, detail = '[' || CAST(? AS TEXT) || '] ' || COALESCE(detail, '') WHERE user_id = ?").run(u.username, id);
+      await db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    });
+    await audit(req, 'eliminar_usuario', `${u.username} (${u.full_name})`);
+    flash(req, 'ok', `Usuario ${u.username} eliminado`);
     res.redirect('/usuarios');
   });
   app.post('/usuarios/:id', role('jefe'), async (req, res) => {

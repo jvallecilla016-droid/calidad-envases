@@ -107,3 +107,8 @@ document.querySelectorAll('fieldset.checklist').forEach((fs) => {
   fs.addEventListener('change', update);
   update();
 });
+
+// Acciones que no se pueden deshacer: piden confirmación antes de enviar.
+document.querySelectorAll('form[data-confirm]').forEach((f) => {
+  f.addEventListener('submit', (e) => { if (!window.confirm(f.dataset.confirm)) e.preventDefault(); });
+});
