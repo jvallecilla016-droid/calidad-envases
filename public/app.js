@@ -84,7 +84,7 @@
   window.addEventListener('online', function () { document.body.classList.remove('offline'); });
 })();
 
-// Prueba con casillas: muestra cuántos impactos resistió y si pasa.
+// Prueba con casillas: muestra cuántos impactos resistió (o defectos encontrados) y si pasa.
 document.querySelectorAll('fieldset.checklist').forEach((fs) => {
   const min = Number(fs.dataset.min);
   const out = fs.querySelector('.chk-total');
@@ -97,7 +97,10 @@ document.querySelectorAll('fieldset.checklist').forEach((fs) => {
       out.className = 'chk-total muted';
     } else {
       const pasa = si >= min;
-      out.textContent = `${si} de ${rows.length} resistidos: ${pasa ? 'PASA' : 'NO PASA'}`;
+      const bad = rows.length - si;
+      out.textContent = fs.dataset.kind === 'defectos'
+        ? `${bad ? `${bad} defecto${bad > 1 ? 's' : ''} encontrado${bad > 1 ? 's' : ''}` : 'Sin defectos'}: ${pasa ? 'PASA' : 'NO PASA'}`
+        : `${si} de ${rows.length} resistidos: ${pasa ? 'PASA' : 'NO PASA'}`;
       out.className = `chk-total ${pasa ? 'ok' : 'bad'}`;
     }
   };

@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
-const { open, tx } = require('./db');
+const { open, tx, parseItems } = require('./db');
 const { evaluateLot, releaseLot, specPoints } = require('./quality');
 const { certificatePdf } = require('./pdf');
 const indicadores = require('./indicadores');
@@ -221,6 +221,7 @@ function createApp(db) {
     // Pruebas con casillas (impacto): cada casilla dice si el envase resistió ese impacto.
     let detail = null;
     let score = null;
+    let note = '';
     if (type.checks > 0) {
       const marks = [];
       for (let i = 1; i <= type.checks; i++) marks.push(req.body[`chk_${i}`]);
@@ -231,6 +232,13 @@ function createApp(db) {
       score = marks.filter((m) => m === 'si').length;
       detail = marks.map((m) => (m === 'si' ? '1' : '0')).join(',');
       result = score >= (type.min_ok || type.checks) ? 'pasa' : 'no_pasa';
+      if (type.items) {
+        const names = type.items.split(',');
+        const found = names.filter((_, i) => marks[i] === 'no');
+        note = found.length ? ` (defectos: ${found.join(', ')})` : ' (sin defectos)';
+      } else {
+        note = ` (${score} de ${type.checks} impactos resistidos)`;
+      }
     } else if (!['pasa', 'no_pasa'].includes(result)) {
       flash(req, 'error', 'Selecciona el resultado de la prueba');
       return res.redirect(`/lotes/${req.ev.lot.id}`);
@@ -239,7 +247,7 @@ function createApp(db) {
       ON CONFLICT (lot_id, test_type_id) DO UPDATE SET result = excluded.result, observations = excluded.observations,
       performed_by = excluded.performed_by, detail = excluded.detail, score = excluded.score, performed_at = NOW()`)
       .run(req.ev.lot.id, typeId, result, (req.body.observations || '').trim() || null, req.session.user.id, detail, score);
-    const extra = score === null ? '' : ` (${score} de ${type.checks} impactos resistidos)`;
+    const extra = note;
     await audit(req, 'registrar_prueba', `${req.ev.lot.lot_number} ${type.code}=${result}${extra}`);
     flash(req, result === 'pasa' ? 'ok' : 'error', `${type.name}: ${result === 'pasa' ? 'PASA' : 'NO PASA'}${extra}`);
     res.redirect(`/lotes/${req.ev.lot.id}`);
@@ -400,12 +408,13 @@ function createApp(db) {
   app.post('/pruebas', role('analista', 'jefe'), async (req, res) => {
     const name = String(req.body.name || '').trim();
     const code = String(req.body.code || name).trim().toUpperCase().normalize('NFD').replace(/[^A-Z0-9]/g, '_');
-    const checks = Math.min(Math.max(Number(req.body.checks) || 0, 0), 10);
-    const minOk = checks ? Math.min(Math.max(Number(req.body.min_ok) || checks, 1), checks) : null;
+    const items = parseItems(req.body.items);
+    const checks = items.length || Math.min(Math.max(Number(req.body.checks) || 0, 0), 10);
+    const minOk = items.length ? items.length : checks ? Math.min(Math.max(Number(req.body.min_ok) || checks, 1), checks) : null;
     if (!name) flash(req, 'error', 'Escribe el nombre de la prueba');
     else if (await db.prepare('SELECT 1 FROM test_types WHERE code = ?').get(code)) flash(req, 'error', 'Ya existe una prueba con ese código');
     else {
-      await db.prepare('INSERT INTO test_types (code, name, description, checks, min_ok) VALUES (?,?,?,?,?)').run(code, name, req.body.description || null, checks, minOk);
+      await db.prepare('INSERT INTO test_types (code, name, description, checks, min_ok, items) VALUES (?,?,?,?,?,?)').run(code, name, req.body.description || null, checks, minOk, items.join(',') || null);
       await audit(req, 'crear_prueba', code);
       flash(req, 'ok', `Prueba "${name}" agregada. Desde ahora es obligatoria para liberar lotes.`);
     }
@@ -414,9 +423,20 @@ function createApp(db) {
   app.post('/pruebas/:id/casillas', role('analista', 'jefe'), async (req, res) => {
     const checks = Math.min(Math.max(Number(req.body.checks) || 0, 0), 10);
     const minOk = checks ? Math.min(Math.max(Number(req.body.min_ok) || checks, 1), checks) : null;
-    await db.prepare('UPDATE test_types SET checks = ?, min_ok = ? WHERE id = ?').run(checks, minOk, Number(req.params.id));
+    await db.prepare('UPDATE test_types SET checks = ?, min_ok = ? WHERE id = ? AND items IS NULL').run(checks, minOk, Number(req.params.id));
     await audit(req, 'cambiar_casillas_prueba', `${req.params.id}: ${checks} casillas, mínimo ${minOk ?? '-'}`);
     flash(req, 'ok', checks ? `Prueba con ${checks} casillas; pasa con ${minOk} o más` : 'Prueba de resultado simple (pasa / no pasa)');
+    res.redirect('/pruebas');
+  });
+  app.post('/pruebas/:id/defectos', role('analista', 'jefe'), async (req, res) => {
+    const items = parseItems(req.body.items);
+    if (!items.length) {
+      flash(req, 'error', 'Escribe al menos un defecto a revisar');
+      return res.redirect('/pruebas');
+    }
+    await db.prepare('UPDATE test_types SET items = ?, checks = ?, min_ok = ? WHERE id = ?').run(items.join(','), items.length, items.length, Number(req.params.id));
+    await audit(req, 'cambiar_defectos_prueba', `${req.params.id}: ${items.join(', ')}`);
+    flash(req, 'ok', `Defectos a revisar: ${items.join(', ')}`);
     res.redirect('/pruebas');
   });
   app.post('/pruebas/:id/estado', role('analista', 'jefe'), async (req, res) => {

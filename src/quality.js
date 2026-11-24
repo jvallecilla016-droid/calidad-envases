@@ -76,7 +76,7 @@ async function evaluateLot(db, lotId) {
 
   const testTypes = await db.prepare('SELECT * FROM test_types WHERE active = 1 ORDER BY id').all();
   const results = await db.prepare(`
-    SELECT r.*, t.name AS test_name, t.code AS test_code, t.checks AS test_checks, u.full_name AS performed_by_name
+    SELECT r.*, t.name AS test_name, t.code AS test_code, t.checks AS test_checks, t.items AS test_items, u.full_name AS performed_by_name
     FROM test_results r JOIN test_types t ON t.id = r.test_type_id
     LEFT JOIN users u ON u.id = r.performed_by WHERE r.lot_id = ?`).all(lotId);
   const resultByType = new Map(results.map((r) => [r.test_type_id, r]));
@@ -144,7 +144,7 @@ function releaseLot(db, lotId, user, notes) {
       specs: ev.specs.map((s) => ({ id: s.id, characteristic: s.characteristic, unit: s.unit, points: s.points })),
       tests: ev.tests.filter((t) => t.result).map((t) => ({
         name: t.type.name, result: t.result.result, observations: t.result.observations,
-        checks: t.result.test_checks || 0, score: t.result.score, detail: t.result.detail,
+        checks: t.result.test_checks || 0, score: t.result.score, detail: t.result.detail, items: t.result.test_items || null,
         performed_by: t.result.performed_by_name, performed_at: t.result.performed_at,
       })),
     };

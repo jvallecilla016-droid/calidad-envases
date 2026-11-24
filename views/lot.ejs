@@ -96,8 +96,8 @@
     <% for (const t of ev.tests) { const r = t.result; %>
       <tr>
         <td><strong><%= t.type.name %></strong><% if (!t.type.active) { %> <small class="muted">(inactiva)</small><% } %></td>
-        <td><% if (!r) { %><span class="muted">Pendiente</span><% } else { %><span class="tag <%= r.result === 'pasa' ? 'ok' : 'bad' %>"><%= r.result === 'pasa' ? 'PASA' : 'NO PASA' %></span><% if (r.detail) { const d = r.detail.split(','); %>
-          <div class="impactos" title="<%= r.score %> de <%= d.length %> impactos resistidos"><% d.forEach((v, i) => { %><span class="<%= v === '1' ? 'si' : 'no' %>"><%= i + 1 %>: <%= v === '1' ? '✓' : '✗' %></span><% }) %></div><% } %><% } %></td>
+        <td><% if (!r) { %><span class="muted">Pendiente</span><% } else { %><span class="tag <%= r.result === 'pasa' ? 'ok' : 'bad' %>"><%= r.result === 'pasa' ? 'PASA' : 'NO PASA' %></span><% if (r.detail) { const d = r.detail.split(','); const names = t.type.items ? t.type.items.split(',') : null; %>
+          <div class="impactos"><% d.forEach((v, i) => { %><span class="<%= v === '1' ? 'si' : 'no' %>"><%= names ? (names[i] || i + 1) : i + 1 %>: <%= v === '1' ? (names ? 'no' : '✓') : (names ? 'sí' : '✗') %></span><% }) %></div><% } %><% } %></td>
         <td><%= r ? (r.observations || '') : '' %></td>
         <td><%= r ? r.performed_by_name + ' · ' + r.performed_at : '' %></td>
         <% if (open) { %>
@@ -105,15 +105,15 @@
           <% if (t.type.active) { %>
           <form method="post" action="/lotes/<%= l.id %>/pruebas" class="test-form">
             <input type="hidden" name="test_type_id" value="<%= t.type.id %>">
-            <% if (t.type.checks > 0) { const prev = r && r.detail ? r.detail.split(',') : []; %>
-            <fieldset class="checklist" data-min="<%= t.type.min_ok || t.type.checks %>">
-              <legend>¿Resistió cada impacto? Pasa con <%= t.type.min_ok || t.type.checks %> de <%= t.type.checks %></legend>
-              <% for (let i = 1; i <= t.type.checks; i++) { %>
+            <% if (t.type.checks > 0) { const prev = r && r.detail ? r.detail.split(',') : []; const names = t.type.items ? t.type.items.split(',') : null; %>
+            <fieldset class="checklist" data-min="<%= t.type.min_ok || t.type.checks %>" data-kind="<%= names ? 'defectos' : 'impactos' %>">
+              <legend><%= names ? '¿El producto tiene este defecto? Pasa solo si no tiene ninguno' : `¿Resistió cada impacto? Pasa con ${t.type.min_ok || t.type.checks} de ${t.type.checks}` %></legend>
+              <% for (let i = 1; i <= t.type.checks; i++) { const label = names ? (names[i - 1] || `Defecto ${i}`) : `Impacto ${i}`; %>
               <div class="chk-row">
-                <span class="chk-n">Impacto <%= i %></span>
-                <div class="seg2" role="radiogroup" aria-label="Impacto <%= i %>">
-                  <label class="opt ok"><input type="radio" name="chk_<%= i %>" value="si" required <%= prev[i - 1] === '1' ? 'checked' : '' %>><span>✓ Resistió</span></label>
-                  <label class="opt bad"><input type="radio" name="chk_<%= i %>" value="no" <%= prev[i - 1] === '0' ? 'checked' : '' %>><span>✗ Falló</span></label>
+                <span class="chk-n"><%= label %></span>
+                <div class="seg2" role="radiogroup" aria-label="<%= label %>">
+                  <label class="opt ok"><input type="radio" name="chk_<%= i %>" value="si" required <%= prev[i - 1] === '1' ? 'checked' : '' %>><span><%= names ? '✓ No tiene' : '✓ Resistió' %></span></label>
+                  <label class="opt bad"><input type="radio" name="chk_<%= i %>" value="no" <%= prev[i - 1] === '0' ? 'checked' : '' %>><span><%= names ? '✗ Sí tiene' : '✗ Falló' %></span></label>
                 </div>
               </div>
               <% } %>
