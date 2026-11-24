@@ -94,7 +94,7 @@ function certificatePdf(snap, stream) {
   if (y > doc.page.height - 120) { doc.addPage(); y = 80; }
   const sigW = (W - 40) / 3;
   const inspectors = [...new Set(snap.samples.map((s) => s.taken_by).filter(Boolean))].join(', ');
-  [['Inspeccionó', inspectors || lot.created_by_name], ['Revisó (Analista de calidad)', lot.submitted_by_name], ['Aprobó (Jefe de calidad)', lot.decided_by_name]]
+  [['Inspeccionó', inspectors || lot.created_by_name], ['Revisó (Auxiliar de calidad)', lot.submitted_by_name], ['Aprobó (Jefe de calidad)', lot.decided_by_name]]
     .forEach(([role, name], i) => {
       const x = L + i * (sigW + 20);
       doc.moveTo(x, y + 25).lineTo(x + sigW, y + 25).stroke('#555');

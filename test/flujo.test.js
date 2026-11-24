@@ -161,3 +161,27 @@ test('una prueba nueva se vuelve obligatoria para liberar', async () => {
   assert.strictEqual(ev.tests.length, 4);
   assert.ok(ev.problems.some((p) => p.includes('apilamiento')));
 });
+
+test('usuarios del equipo deben cambiar la contraseña inicial', async (t) => {
+  const db = await testDb();
+  const server = createApp(db).listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const team = await db.prepare("SELECT username, full_name, role, must_change FROM users WHERE must_change = 1 ORDER BY id").all();
+  assert.deepStrictEqual(team.map((u) => [u.username, u.full_name, u.role]), [
+    ['lgomez', 'Luis Eduardo Gómez', 'jefe'],
+    ['jcvallecilla', 'Juan Camilo Vallecilla', 'analista'],
+    ['paola', 'Paola', 'analista'],
+    ['ncastellanos', 'Nicolás Castellanos', 'inspector'],
+  ]);
+
+  const c = client(base);
+  assert.strictEqual((await c.post('/login', { username: 'lgomez', password: DEFAULT_PASSWORD })).status, 302);
+  assert.strictEqual((await c.get('/')).headers.get('location'), '/cuenta');
+  assert.strictEqual((await c.post('/lotes', { lot_number: 'X' })).status, 403);
+  const r = await c.post('/cuenta', { current: DEFAULT_PASSWORD, password: 'ClaveLuis2026', confirm: 'ClaveLuis2026' });
+  assert.strictEqual(r.headers.get('location'), '/');
+  assert.strictEqual((await c.get('/')).status, 200);
+  assert.strictEqual((await db.prepare("SELECT must_change FROM users WHERE username = 'lgomez'").get()).must_change, 0);
+  assert.strictEqual((await c.get('/usuarios')).status, 200, 'Luis administra usuarios');
+});

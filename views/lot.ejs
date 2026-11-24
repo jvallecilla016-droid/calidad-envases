@@ -141,7 +141,7 @@
   <h2>3. Liberación</h2>
   <% if (l.status === 'en_proceso') { %>
     <% if (role === 'inspector') { %>
-      <p class="muted">Cuando termines las muestras y las pruebas, el analista de calidad revisa el lote y lo envía a aprobación.</p>
+      <p class="muted">Cuando termines las muestras y las pruebas, el auxiliar de calidad revisa el lote y lo envía a aprobación.</p>
     <% } else { %>
       <form method="post" action="/lotes/<%= l.id %>/enviar" class="inline">
         <button class="btn primary" <%= ev.complete ? '' : 'disabled' %>>Enviar a aprobación del jefe de calidad</button>

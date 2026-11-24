@@ -394,6 +394,22 @@ const MIGRATIONS = [
         .run('VISUAL', 'Inspección visual', 'Revisar el producto a la vista. Marcar cada defecto como presente o ausente. Pasa solo si no tiene ninguno.', VISUAL_ITEMS.length, VISUAL_ITEMS.length, VISUAL_ITEMS.join(','));
     }
   },
+  // 3. Usuarios del equipo de calidad. Entran con la contraseña inicial y deben cambiarla.
+  async (db) => {
+    await db.exec('ALTER TABLE users ADD COLUMN must_change INTEGER NOT NULL DEFAULT 0');
+    const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
+    for (const [u, name, r] of TEAM_USERS) {
+      if (await db.prepare('SELECT 1 FROM users WHERE username = ?').get(u)) continue;
+      await db.prepare('INSERT INTO users (username, full_name, role, password_hash, must_change) VALUES (?,?,?,?,1)').run(u, name, r, hash);
+    }
+  },
+];
+
+const TEAM_USERS = [
+  ['lgomez', 'Luis Eduardo Gómez', 'jefe'],
+  ['jcvallecilla', 'Juan Camilo Vallecilla', 'analista'],
+  ['paola', 'Paola', 'analista'],
+  ['ncastellanos', 'Nicolás Castellanos', 'inspector'],
 ];
 
 // Lista de defectos para una prueba de inspección: texto separado por comas o saltos de línea.
