@@ -62,6 +62,16 @@ function createApp(db) {
     }
     next();
   };
+  // Administrador: el único que crea, modifica y elimina usuarios y elimina lotes (Luis Eduardo Gómez).
+  // Se consulta en la base en cada petición para que un cambio aplique de inmediato.
+  const admin = async (req, res, next) => {
+    if (!req.session.user) return res.redirect('/login');
+    const u = await db.prepare('SELECT is_admin FROM users WHERE id = ? AND active = 1').get(req.session.user.id);
+    if (!u || !u.is_admin) {
+      return res.status(403).render('error', { title: 'Sin permiso', message: 'Solo el administrador (Luis Eduardo Gómez) puede hacer esto.' });
+    }
+    next();
+  };
   const audit = (req, action, detail) =>
     db.prepare('INSERT INTO audit_log (user_id, action, detail) VALUES (?,?,?)').run(req.session.user.id, action, detail);
   const num = (v) => {
@@ -78,7 +88,7 @@ function createApp(db) {
       return res.status(401).render('login', { title: 'Ingresar', error: 'Usuario o contraseña incorrectos' });
     }
     req.session.regenerate(() => {
-      req.session.user = { id: u.id, username: u.username, full_name: u.full_name, role: u.role, must_change: !!u.must_change };
+      req.session.user = { id: u.id, username: u.username, full_name: u.full_name, role: u.role, must_change: !!u.must_change, admin: !!u.is_admin };
       res.redirect('/');
     });
   });
@@ -266,7 +276,7 @@ function createApp(db) {
   });
 
   // Eliminar un lote (por ejemplo, uno de prueba). Solo el jefe y escribiendo el número de lote.
-  app.post('/lotes/:id/eliminar', role('jefe'), loadLot, async (req, res) => {
+  app.post('/lotes/:id/eliminar', admin, loadLot, async (req, res) => {
     const lot = req.ev.lot;
     if (String(req.body.confirm || '').trim() !== lot.lot_number) {
       flash(req, 'error', `Para eliminar escribe exactamente el número de lote: ${lot.lot_number}`);
@@ -474,10 +484,10 @@ function createApp(db) {
   });
 
   // ---------- Usuarios (jefe de calidad) ----------
-  app.get('/usuarios', role('jefe'), async (req, res) => {
+  app.get('/usuarios', admin, async (req, res) => {
     res.render('users', { title: 'Usuarios', users: await db.prepare('SELECT * FROM users ORDER BY active DESC, role, username').all() });
   });
-  app.post('/usuarios', role('jefe'), async (req, res) => {
+  app.post('/usuarios', admin, async (req, res) => {
     const username = String(req.body.username || '').trim().toLowerCase();
     const { full_name, role: r, password } = req.body;
     if (!/^[a-z0-9._-]{3,30}$/.test(username)) flash(req, 'error', 'Usuario inválido (3–30 letras, números, punto o guion)');
@@ -493,7 +503,7 @@ function createApp(db) {
   });
   // Eliminar usuario: solo si no tiene lotes, muestras, pruebas ni certificados a su nombre.
   // Si los tiene, se desactiva para no perder quién hizo cada registro.
-  app.post('/usuarios/:id/eliminar', role('jefe'), async (req, res) => {
+  app.post('/usuarios/:id/eliminar', admin, async (req, res) => {
     const id = Number(req.params.id);
     const u = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (!u) return res.redirect('/usuarios');
@@ -520,7 +530,7 @@ function createApp(db) {
     flash(req, 'ok', `Usuario ${u.username} eliminado`);
     res.redirect('/usuarios');
   });
-  app.post('/usuarios/:id', role('jefe'), async (req, res) => {
+  app.post('/usuarios/:id', admin, async (req, res) => {
     const id = Number(req.params.id);
     const u = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (!u) return res.redirect('/usuarios');

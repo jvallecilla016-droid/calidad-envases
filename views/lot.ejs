@@ -181,7 +181,7 @@
   <% } %>
 </section>
 
-<% if (role === 'jefe') { %>
+<% if (user.admin) { %>
 <section>
   <details class="danger-zone">
     <summary>Eliminar este lote</summary>

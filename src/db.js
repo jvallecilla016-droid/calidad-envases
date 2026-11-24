@@ -403,6 +403,11 @@ const MIGRATIONS = [
       await db.prepare('INSERT INTO users (username, full_name, role, password_hash, must_change) VALUES (?,?,?,?,1)').run(u, name, r, hash);
     }
   },
+  // 4. Solo el administrador (Luis) crea, modifica y elimina usuarios y elimina lotes.
+  async (db) => {
+    await db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
+    await db.exec("UPDATE users SET is_admin = 1 WHERE username = 'lgomez'");
+  },
 ];
 
 const TEAM_USERS = [

@@ -137,7 +137,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
       assert.strictEqual((await c.get(p)).status, 200, p);
     }
   }
-  assert.strictEqual((await jefe.get('/usuarios')).status, 200);
+  assert.strictEqual((await jefe.get('/usuarios')).status, 403, 'el jefe genérico no administra usuarios');
   // Archivos para instalar la app en el celular (sin iniciar sesión)
   const anon = client(base);
   for (const p of ['/sw.js', '/manifest.webmanifest', '/offline.html', '/static/app.js', '/static/icons/icon-192.png']) {
@@ -186,13 +186,15 @@ test('usuarios del equipo deben cambiar la contraseña inicial', async (t) => {
   assert.strictEqual((await c.get('/usuarios')).status, 200, 'Luis administra usuarios');
 });
 
-test('el jefe elimina lotes de prueba y usuarios sin registros', async (t) => {
+test('solo Luis (administrador) elimina lotes y usuarios', async (t) => {
   const db = await testDb();
   const server = createApp(db).listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
   const login = async (u) => { const c = client(base); await c.post('/login', { username: u, password: DEFAULT_PASSWORD }); return c; };
-  const jefe = await login('jefe');
+  const jefeGen = await login('jefe');
+  const jefe = await login('lgomez');
+  await jefe.post('/cuenta', { current: DEFAULT_PASSWORD, password: 'ClaveLuis2026', confirm: 'ClaveLuis2026' });
   const insp = await login('inspector');
   const prod = await db.prepare("SELECT id FROM products WHERE code = 'REF04-CF'").get();
   await insp.post('/lotes', { lot_number: 'PRUEBA-1', product_id: prod.id, production_date: '2026-11-24' });
@@ -201,6 +203,8 @@ test('el jefe elimina lotes de prueba y usuarios sin registros', async (t) => {
 
   // El inspector no puede eliminar; el jefe debe escribir el número exacto
   assert.strictEqual((await insp.post(`/lotes/${lot.id}/eliminar`, { confirm: 'PRUEBA-1' })).status, 403);
+  assert.strictEqual((await jefeGen.post(`/lotes/${lot.id}/eliminar`, { confirm: 'PRUEBA-1' })).status, 403, 'el jefe genérico no elimina');
+  assert.strictEqual((await jefeGen.post('/usuarios', { username: 'nuevo', full_name: 'X', role: 'inspector', password: '12345678' })).status, 403);
   await jefe.post(`/lotes/${lot.id}/eliminar`, { confirm: 'otro' });
   assert.ok(await db.prepare('SELECT 1 FROM lots WHERE id = ?').get(lot.id));
 
@@ -218,7 +222,7 @@ test('el jefe elimina lotes de prueba y usuarios sin registros', async (t) => {
   assert.strictEqual(await db.prepare('SELECT 1 FROM users WHERE id = ?').get(inspId), undefined);
   assert.ok(await db.prepare("SELECT 1 FROM audit_log WHERE detail LIKE '[inspector]%'").get());
   // Nadie puede eliminarse a sí mismo
-  const jefeId = (await db.prepare("SELECT id FROM users WHERE username = 'jefe'").get()).id;
+  const jefeId = (await db.prepare("SELECT id FROM users WHERE username = 'lgomez'").get()).id;
   await jefe.post(`/usuarios/${jefeId}/eliminar`);
   assert.ok(await db.prepare('SELECT 1 FROM users WHERE id = ?').get(jefeId));
 });
