@@ -66,7 +66,14 @@ function certificatePdf(snap, stream) {
   const tcols = [['Prueba', 120, 'left'], ['Resultado', 60], ['Realizada por', 110, 'left'], ['Fecha', 85], ['Observaciones', W - 375, 'left']];
   y = tableHeader(doc, tcols, L, y);
   for (const t of snap.tests) {
-    y = tableRow(doc, tcols, [t.name, (t.result === 'pasa' ? 'PASA' : 'NO PASA') + (t.score != null && t.checks ? ` (${t.score}/${t.checks})` : ''), t.performed_by || '—', t.performed_at, t.observations || ''], L, y,
+    let obs = t.observations || '';
+    let extra = t.score != null && t.checks ? ` (${t.score}/${t.checks})` : '';
+    if (t.items && t.detail) {
+      const found = t.items.split(',').filter((_, i) => t.detail.split(',')[i] === '0');
+      extra = '';
+      obs = (found.length ? `Defectos: ${found.join(', ')}` : 'Sin defectos') + (obs ? `. ${obs}` : '');
+    }
+    y = tableRow(doc, tcols, [t.name, (t.result === 'pasa' ? 'PASA' : 'NO PASA') + extra, t.performed_by || '—', t.performed_at, obs], L, y,
       { color1: t.result === 'pasa' ? '#1d7a35' : '#b3261e' });
   }
   y += 14;

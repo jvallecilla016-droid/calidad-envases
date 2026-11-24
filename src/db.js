@@ -186,6 +186,8 @@ const SEED_PRODUCTS = [
   },
 ];
 
+const VISUAL_ITEMS = ['Rotos', 'Manchados', 'Producto incompleto'];
+
 const SEED_TESTS = [
   ['IMPACTO', 'Prueba de impacto', 'Resistencia del envase lleno a la caída o golpe. Registrar altura y condición de la prueba en observaciones.'],
   ['FILTRACION', 'Prueba de filtración', 'Hermeticidad del conjunto envase + tapa. Registrar tiempo y método en observaciones.'],
@@ -384,7 +386,20 @@ const MIGRATIONS = [
     await db.exec('ALTER TABLE test_results ADD COLUMN score INTEGER');
     await db.exec("UPDATE test_types SET checks = 4, min_ok = 2, description = 'Se dan 4 impactos al envase y se marca en cada casilla si resistió. Pasa si resiste al menos 2.' WHERE code = 'IMPACTO'");
   },
+  // 2. Inspección visual: lista de defectos con nombre; pasa solo si no aparece ninguno.
+  async (db) => {
+    await db.exec('ALTER TABLE test_types ADD COLUMN items TEXT');
+    if (!(await db.prepare("SELECT 1 FROM test_types WHERE code = 'VISUAL'").get())) {
+      await db.prepare('INSERT INTO test_types (code, name, description, checks, min_ok, items) VALUES (?,?,?,?,?,?)')
+        .run('VISUAL', 'Inspección visual', 'Revisar el producto a la vista. Marcar cada defecto como presente o ausente. Pasa solo si no tiene ninguno.', VISUAL_ITEMS.length, VISUAL_ITEMS.length, VISUAL_ITEMS.join(','));
+    }
+  },
 ];
+
+// Lista de defectos para una prueba de inspección: texto separado por comas o saltos de línea.
+function parseItems(v) {
+  return String(v || '').split(/[,\n]/).map((x) => x.trim().replace(/\s+/g, ' ')).filter(Boolean).slice(0, 10);
+}
 
 async function migrate(db) {
   const row = await db.prepare("SELECT value FROM meta WHERE key = 'version'").get();
@@ -423,4 +438,4 @@ function tx(db, fn) {
   return db.transaction(fn);
 }
 
-module.exports = { open, tx, yearNow, cleanPgUrl, POINTS, DEFAULT_PASSWORD };
+module.exports = { open, tx, yearNow, cleanPgUrl, parseItems, POINTS, DEFAULT_PASSWORD };
