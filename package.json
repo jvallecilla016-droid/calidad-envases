@@ -1,0 +1,19 @@
+{
+  "name": "calidad-envases",
+  "version": "1.0.0",
+  "description": "Control de calidad y liberación de lotes de envases plásticos",
+  "main": "src/server.js",
+  "private": true,
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "pdfkit": "^0.15.2"
+  }
+}

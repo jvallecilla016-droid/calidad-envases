@@ -1,0 +1,18 @@
+<%- include('partials/header') %>
+<div class="head">
+  <h1>Productos y especificaciones</h1>
+  <% if (user.role !== 'inspector') { %><a class="btn primary" href="/productos/nuevo">+ Nuevo producto</a><% } %>
+</div>
+<table class="grid">
+  <thead><tr><th>Código</th><th>Producto</th><th>Ref.</th><th>Capacidad</th><th>Molde</th><th>Especificaciones</th><th>Estado</th></tr></thead>
+  <tbody>
+  <% for (const p of products) { %>
+    <tr class="<%= p.active ? '' : 'inactive' %>">
+      <td><a href="/productos/<%= p.id %>"><strong><%= p.code %></strong></a></td>
+      <td><%= p.name %></td><td><%= p.referencia || '' %></td><td><%= p.capacidad || '' %></td><td><%= p.molde %></td>
+      <td><%= p.n_specs %></td><td><%= p.active ? 'Activo' : 'Inactivo' %></td>
+    </tr>
+  <% } %>
+  </tbody>
+</table>
+<%- include('partials/footer') %>

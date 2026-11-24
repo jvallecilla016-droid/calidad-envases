@@ -1,0 +1,11 @@
+<%- include('partials/header') %>
+<h1>Mi cuenta</h1>
+<p><strong><%= user.full_name %></strong> · usuario <code><%= user.username %></code> · <%= ROLE_NAMES[user.role] %></p>
+<form method="post" action="/cuenta" class="card narrow">
+  <h2>Cambiar contraseña</h2>
+  <label>Contraseña actual <input type="password" name="current" required></label>
+  <label>Nueva contraseña (mínimo 8 caracteres) <input type="password" name="password" minlength="8" required></label>
+  <label>Confirmar nueva contraseña <input type="password" name="confirm" minlength="8" required></label>
+  <button class="btn primary">Guardar</button>
+</form>
+<%- include('partials/footer') %>

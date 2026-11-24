@@ -1,0 +1,164 @@
+<%- include('partials/header') %>
+<% const l = ev.lot; const role = user.role; const open = l.status === 'en_proceso'; %>
+<div class="head">
+  <div>
+    <h1>Lote <%= l.lot_number %> <span class="badge <%= l.status %>"><%= STATUS_NAMES[l.status] %></span></h1>
+    <p class="muted"><%= l.product_name %> · <%= l.product_code %> · <%= l.molde %></p>
+  </div>
+  <% if (l.certificate_number) { %>
+    <a class="btn primary" href="/certificados/<%= l.certificate_number %>.pdf" target="_blank">Certificado <%= l.certificate_number %> (PDF)</a>
+  <% } %>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <h3>Datos del lote</h3>
+    <dl>
+      <dt>Fecha producción</dt><dd><%= l.production_date %></dd>
+      <dt>Turno / máquina</dt><dd><%= [l.shift, l.machine].filter(Boolean).join(' / ') || '—' %></dd>
+      <dt>Cantidad</dt><dd><%= l.quantity || '—' %></dd>
+      <dt>Creado por</dt><dd><%= l.created_by_name %> · <%= l.created_at %></dd>
+      <% if (l.submitted_by_name) { %><dt>Revisó</dt><dd><%= l.submitted_by_name %> · <%= l.submitted_at %></dd><% } %>
+      <% if (l.decided_by_name) { %><dt><%= l.status === 'liberado' ? 'Aprobó' : 'Rechazó' %></dt><dd><%= l.decided_by_name %> · <%= l.decided_at %></dd><% } %>
+      <% if (l.decision_notes) { %><dt>Decisión</dt><dd><%= l.decision_notes %></dd><% } %>
+      <% if (l.notes) { %><dt>Observaciones</dt><dd><%= l.notes %></dd><% } %>
+    </dl>
+  </div>
+  <div class="card verdict <%= ev.conforme ? 'ok' : (ev.complete ? 'bad' : 'pending') %>">
+    <h3>Estado de conformidad</h3>
+    <p class="big"><%= ev.conforme ? 'CUMPLE' : (ev.complete ? 'NO CUMPLE' : 'INCOMPLETO') %></p>
+    <ul class="checks">
+      <li class="<%= ev.measurementsOk ? 'ok' : 'bad' %>">Especificaciones: <%= ev.samples.length %> muestra(s), <%= ev.measurementsOk ? 'todas dentro de límites' : (ev.measurementsComplete ? 'con lecturas fuera de límites' : 'faltan datos') %></li>
+      <li class="<%= ev.testsOk ? 'ok' : 'bad' %>">Pruebas: <%= ev.testsOk ? 'todas pasan' : (ev.testsComplete ? 'alguna no pasa' : 'pendientes') %></li>
+    </ul>
+    <% if (ev.problems.length) { %>
+      <details <%= ev.problems.length < 6 ? 'open' : '' %>><summary><%= ev.problems.length %> observación(es)</summary>
+        <ul class="problems"><% for (const p of ev.problems) { %><li><%= p %></li><% } %></ul>
+      </details>
+    <% } %>
+  </div>
+</div>
+
+<section>
+  <div class="head">
+    <h2>1. Especificaciones (resumen)</h2>
+    <% if (open) { %><a class="btn primary" href="/lotes/<%= l.id %>/muestras/nueva">+ Registrar muestra</a><% } %>
+  </div>
+  <table class="grid">
+    <thead><tr><th>Característica</th><th>Unid.</th><th>Puntos</th><th>LIC</th><th>LCC</th><th>LSC</th><th>Lecturas</th><th>Mín</th><th>Máx</th><th>Prom.</th><th>Resultado</th></tr></thead>
+    <tbody>
+    <% for (const x of ev.specSummary) { %>
+      <tr>
+        <td><%= x.spec.characteristic %></td><td><%= x.spec.unit %></td><td><%= x.spec.points ? 'A–H' : '1' %></td>
+        <td><%= x.spec.lic %></td><td><%= x.spec.lcc ?? '—' %></td><td><%= x.spec.lsc %></td>
+        <td><%= x.n %></td>
+        <td><%= x.min ?? '—' %></td><td><%= x.max ?? '—' %></td><td><%= x.avg === null ? '—' : x.avg.toFixed(2) %></td>
+        <td><% if (!x.n) { %><span class="muted">Sin datos</span><% } else if (x.ok) { %><span class="tag ok">Conforme</span><% } else { %><span class="tag bad"><%= x.out %> fuera</span><% } %></td>
+      </tr>
+    <% } %>
+    </tbody>
+  </table>
+
+  <% for (const s of ev.samples) { %>
+    <details class="sample">
+      <summary>Muestra <%= s.sample_no %> · <%= s.taken_by_name %> · <%= s.taken_at %>
+        <span class="tag <%= s.ok && s.complete ? 'ok' : 'bad' %>"><%= !s.complete ? 'Incompleta' : (s.ok ? 'Conforme' : 'No conforme') %></span></summary>
+      <table class="grid compact">
+        <thead><tr><th>Característica</th><% for (const p of 'ABCDEFGH') { %><th><%= p %></th><% } %></tr></thead>
+        <tbody>
+        <% for (const spec of ev.specs) { %>
+          <tr><td><%= spec.characteristic %> (<%= spec.unit %>)</td>
+          <% if (spec.points) { for (const p of specPoints(spec)) { const v = s.values[spec.id + '|' + p]; %>
+            <td class="<%= v ? (v.ok ? 'in' : 'out') : '' %>"><%= v ? v.value : '—' %></td>
+          <% } } else { const v = s.values[spec.id + '|']; %>
+            <td colspan="8" class="<%= v ? (v.ok ? 'in' : 'out') : '' %>"><%= v ? v.value : '—' %></td>
+          <% } %></tr>
+        <% } %>
+        </tbody>
+      </table>
+      <% if (open) { %>
+        <div class="actions">
+          <a class="btn small" href="/lotes/<%= l.id %>/muestras/<%= s.id %>/editar">Editar</a>
+          <% if (role !== 'inspector') { %>
+          <form method="post" action="/lotes/<%= l.id %>/muestras/<%= s.id %>/eliminar" class="inline" onsubmit="return confirm('¿Eliminar la muestra <%= s.sample_no %>?')"><button class="btn small danger">Eliminar</button></form>
+          <% } %>
+        </div>
+      <% } %>
+    </details>
+  <% } %>
+</section>
+
+<section>
+  <h2>2. Pruebas de liberación</h2>
+  <table class="grid">
+    <thead><tr><th>Prueba</th><th>Resultado</th><th>Observaciones</th><th>Realizó</th><% if (open) { %><th>Registrar</th><% } %></tr></thead>
+    <tbody>
+    <% for (const t of ev.tests) { const r = t.result; %>
+      <tr>
+        <td><strong><%= t.type.name %></strong><% if (!t.type.active) { %> <small class="muted">(inactiva)</small><% } %></td>
+        <td><% if (!r) { %><span class="muted">Pendiente</span><% } else { %><span class="tag <%= r.result === 'pasa' ? 'ok' : 'bad' %>"><%= r.result === 'pasa' ? 'PASA' : 'NO PASA' %></span><% } %></td>
+        <td><%= r ? (r.observations || '') : '' %></td>
+        <td><%= r ? r.performed_by_name + ' · ' + r.performed_at : '' %></td>
+        <% if (open) { %>
+        <td>
+          <% if (t.type.active) { %>
+          <form method="post" action="/lotes/<%= l.id %>/pruebas" class="test-form">
+            <input type="hidden" name="test_type_id" value="<%= t.type.id %>">
+            <label class="radio"><input type="radio" name="result" value="pasa" required <%= r && r.result === 'pasa' ? 'checked' : '' %>> Pasa</label>
+            <label class="radio"><input type="radio" name="result" value="no_pasa" <%= r && r.result === 'no_pasa' ? 'checked' : '' %>> No pasa</label>
+            <input name="observations" placeholder="Observaciones" value="<%= r ? (r.observations || '') : '' %>">
+            <button class="btn small">Guardar</button>
+          </form>
+          <% } %>
+        </td>
+        <% } %>
+      </tr>
+    <% } %>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>3. Liberación</h2>
+  <% if (l.status === 'en_proceso') { %>
+    <% if (role === 'inspector') { %>
+      <p class="muted">Cuando termines las muestras y las pruebas, el analista de calidad revisa el lote y lo envía a aprobación.</p>
+    <% } else { %>
+      <form method="post" action="/lotes/<%= l.id %>/enviar" class="inline">
+        <button class="btn primary" <%= ev.complete ? '' : 'disabled' %>>Enviar a aprobación del jefe de calidad</button>
+      </form>
+      <% if (!ev.complete) { %><p class="muted">Se habilita cuando todas las muestras estén completas y todas las pruebas tengan resultado.</p><% } %>
+    <% } %>
+    <% if (role === 'jefe') { %>
+      <form method="post" action="/lotes/<%= l.id %>/rechazar" class="card narrow">
+        <label>Rechazar el lote directamente (motivo) <input name="decision_notes" required></label>
+        <button class="btn danger">Rechazar lote</button>
+      </form>
+    <% } %>
+  <% } else if (l.status === 'en_revision') { %>
+    <% if (role === 'jefe') { %>
+      <div class="card narrow">
+        <form method="post" action="/lotes/<%= l.id %>/liberar">
+          <label>Observaciones de liberación (opcional) <input name="decision_notes"></label>
+          <button class="btn primary" <%= ev.conforme ? '' : 'disabled' %>>Aprobar y emitir certificado</button>
+          <% if (!ev.conforme) { %><p class="muted">No se puede liberar: el lote no cumple todas las especificaciones y pruebas.</p><% } %>
+        </form>
+        <hr>
+        <form method="post" action="/lotes/<%= l.id %>/rechazar">
+          <label>Motivo del rechazo <input name="decision_notes" required></label>
+          <button class="btn danger">Rechazar lote</button>
+        </form>
+      </div>
+    <% } else { %>
+      <p>El lote está esperando la aprobación del jefe de calidad.</p>
+    <% } %>
+    <% if (role !== 'inspector') { %>
+      <form method="post" action="/lotes/<%= l.id %>/devolver" class="inline"><button class="btn small">Devolver a proceso para corregir</button></form>
+    <% } %>
+  <% } else if (l.status === 'liberado') { %>
+    <p>Lote liberado con el certificado <strong><%= l.certificate_number %></strong>.</p>
+  <% } else { %>
+    <p>Lote rechazado. Motivo: <%= l.decision_notes %></p>
+  <% } %>
+</section>
+<%- include('partials/footer') %>
