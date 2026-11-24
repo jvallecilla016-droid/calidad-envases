@@ -10,7 +10,7 @@ Tiempo estimado: 20 minutos. No piden tarjeta de crédito.
 ## 1. Crear la base de datos en Neon
 
 1. Entra a https://neon.tech y elige **Sign up** con tu cuenta de GitHub.
-2. Crea un proyecto: nombre `calidad-envases`, región **AWS US East (N. Virginia)** (es la más cercana a Colombia), versión de Postgres la que venga por defecto.
+2. Crea un proyecto: nombre `calidad-envases`, región **AWS Este de EE. UU. 1 (Norte de Virginia)** (es la más cercana a Colombia y la misma donde queda la app en Render), versión de Postgres la que venga por defecto.
 3. En el panel del proyecto pulsa **Connect**. Copia la cadena de conexión que empieza por `postgresql://` y termina en `?sslmode=require`.
 4. Guárdala en un lugar privado. Esa cadena es la llave de la base: no la compartas ni la subas a GitHub.
 
