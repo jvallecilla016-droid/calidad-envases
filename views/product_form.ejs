@@ -18,7 +18,7 @@
   </div>
 
   <h3>Especificaciones</h3>
-  <p class="muted">Las de peso llevan 1 lectura por muestra. Las de diámetro llevan 8 lecturas (puntos A–H). Si cambias un límite, aplica a las muestras nuevas; las ya registradas conservan el límite con que se midieron.</p>
+  <p class="muted">Las de peso llevan 1 lectura por muestra. Las de diámetro llevan 4 lecturas (puntos A–D). Si cambias un límite, aplica a las muestras nuevas; las ya registradas conservan el límite con que se midieron.</p>
   <table class="grid" id="specs">
     <thead><tr><th>Componente</th><th>Característica</th><th>Unidad</th><th>Lecturas</th><th>LIC</th><th>LCC</th><th>LSC</th><% if (canEdit) { %><th></th><% } %></tr></thead>
     <tbody>
@@ -27,7 +27,7 @@
         <td><input type="hidden" name="s_id" value="<%= s.id || '' %>"><input name="s_component" value="<%= s.component %>" <%= dis %>></td>
         <td><input name="s_characteristic" value="<%= s.characteristic %>" <%= dis %>></td>
         <td><select name="s_unit" <%= dis %>><% for (const u of ['g','mm','cm','ml','%']) { %><option <%= s.unit === u ? 'selected' : '' %>><%= u %></option><% } %></select></td>
-        <td><select name="s_points" <%= dis %>><option value="1" <%= !s.points ? 'selected' : '' %>>1</option><option value="8" <%= s.points ? 'selected' : '' %>>8 (A–H)</option></select></td>
+        <td><select name="s_points" <%= dis %>><option value="1" <%= !s.points ? 'selected' : '' %>>1</option><option value="4" <%= s.points ? 'selected' : '' %>>4 (A–D)</option></select></td>
         <td><input class="num" name="s_lic" value="<%= s.lic ?? '' %>" <%= dis %>></td>
         <td><input class="num" name="s_lcc" value="<%= s.lcc ?? '' %>" <%= dis %>></td>
         <td><input class="num" name="s_lsc" value="<%= s.lsc ?? '' %>" <%= dis %>></td>
@@ -42,7 +42,7 @@
         <td><input type="hidden" name="s_id" value=""><input name="s_component" value="Cuñete"></td>
         <td><input name="s_characteristic" placeholder="Ej. Diámetro externo cuñete"></td>
         <td><select name="s_unit"><option>g</option><option selected>mm</option><option>cm</option><option>ml</option><option>%</option></select></td>
-        <td><select name="s_points"><option value="1">1</option><option value="8" selected>8 (A–H)</option></select></td>
+        <td><select name="s_points"><option value="1">1</option><option value="4" selected>4 (A–D)</option></select></td>
         <td><input class="num" name="s_lic"></td><td><input class="num" name="s_lcc"></td><td><input class="num" name="s_lsc"></td>
         <td><button type="button" class="btn small danger" onclick="this.closest('tr').remove()">Quitar</button></td>
       </tr>

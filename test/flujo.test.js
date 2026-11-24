@@ -64,7 +64,26 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
 
   // Pruebas
   const types = await db.prepare('SELECT * FROM test_types').all();
-  for (const ty of types) await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: ty.id, result: 'pasa', observations: 'OK' });
+  // Datos de una prueba aprobada: casillas para impacto, resultado simple para las demás.
+  const aprobada = (ty) => (ty.checks ? Object.fromEntries([...Array(ty.checks)].map((_, i) => [`chk_${i + 1}`, 'si'])) : { result: 'pasa' });
+  const impacto = types.find((t) => t.code === 'IMPACTO');
+  assert.deepStrictEqual([impacto.checks, impacto.min_ok], [4, 2], 'impacto: 4 casillas, pasa con 2');
+  assert.strictEqual(specs.filter((s) => s.points).every((s) => s.points === 'A,B,C,D'), true, 'diámetros en 4 puntos');
+
+  // Impacto: sin marcar las 4 casillas no se guarda
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, chk_1: 'si', chk_2: 'si', chk_3: 'si' });
+  assert.strictEqual(await db.prepare('SELECT 1 FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id), undefined);
+  // 1 de 4 resistidos: no pasa
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, chk_1: 'si', chk_2: 'no', chk_3: 'no', chk_4: 'no' });
+  let tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
+  assert.deepStrictEqual([tr.result, tr.score, tr.detail], ['no_pasa', 1, '1,0,0,0']);
+  // 2 de 4 resistidos: pasa
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, chk_1: 'si', chk_2: 'no', chk_3: 'si', chk_4: 'no' });
+  tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
+  assert.deepStrictEqual([tr.result, tr.score, tr.detail], ['pasa', 2, '1,0,1,0']);
+  assert.ok((await (await insp.get(`/lotes/${lotId}`)).text()).includes('Impacto 4'));
+
+  for (const ty of types) await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: ty.id, observations: 'OK', ...aprobada(ty) });
 
   // El inspector no puede enviar a aprobación
   assert.strictEqual((await insp.post(`/lotes/${lotId}/enviar`)).status, 403);
@@ -90,7 +109,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   r = await insp.post('/lotes', { lot_number: 'L-2611-046', product_id: prod.id, production_date: '2026-11-23' });
   const lot2 = Number(r.headers.get('location').split('/').pop());
   await insp.post(`/lotes/${lot2}/muestras`, form());
-  for (const ty of types) await insp.post(`/lotes/${lot2}/pruebas`, { test_type_id: ty.id, result: 'pasa' });
+  for (const ty of types) await insp.post(`/lotes/${lot2}/pruebas`, { test_type_id: ty.id, ...aprobada(ty) });
   await analista.post(`/lotes/${lot2}/enviar`);
   await jefe.post(`/lotes/${lot2}/liberar`);
   assert.strictEqual((await evaluateLot(db, lot2)).lot.certificate_number, `CL-${year}-0002`);

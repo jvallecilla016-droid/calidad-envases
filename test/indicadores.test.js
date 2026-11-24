@@ -35,7 +35,7 @@ test('indicadores con lotes reales de la base de datos', async () => {
     { lotes: ind.resumen.lotes, lib: ind.resumen.liberados, rec: ind.resumen.rechazados, proc: ind.resumen.en_proceso, pct: ind.resumen.cumplimiento, fuera: ind.resumen.lecturas_fuera },
     { lotes: 4, lib: 1, rec: 2, proc: 1, pct: 33.3, fuera: 3 });
   assert.strictEqual(ind.porPunto.find((p) => p.punto === 'C').fuera, 2);
-  assert.strictEqual(ind.porPunto.reduce((a, p) => a + p.fuera, 0), 2, 'el peso no cuenta como punto A–H');
+  assert.strictEqual(ind.porPunto.reduce((a, p) => a + p.fuera, 0), 2, 'el peso no cuenta como punto A–D');
   assert.deepStrictEqual(ind.porSemana.map((s) => [s.semana, s.total]), [['2026-11-02', 2], ['2026-11-09', 2]]);
   const ref01 = ind.porProducto.find((p) => p.codigo === 'REF01-CF');
   assert.deepStrictEqual([ref01.liberados, ref01.rechazados, ref01.cumplimiento], [1, 1, 50]);

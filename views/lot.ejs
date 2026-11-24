@@ -49,7 +49,7 @@
     <tbody>
     <% for (const x of ev.specSummary) { %>
       <tr>
-        <td><%= x.spec.characteristic %></td><td><%= x.spec.unit %></td><td><%= x.spec.points ? 'A–H' : '1' %></td>
+        <td><%= x.spec.characteristic %></td><td><%= x.spec.unit %></td><td><%= x.spec.points ? 'A–D' : '1' %></td>
         <td><%= x.spec.lic %></td><td><%= x.spec.lcc ?? '—' %></td><td><%= x.spec.lsc %></td>
         <td><%= x.n %></td>
         <td><%= x.min ?? '—' %></td><td><%= x.max ?? '—' %></td><td><%= x.avg === null ? '—' : x.avg.toFixed(2) %></td>
@@ -64,7 +64,7 @@
       <summary>Muestra <%= s.sample_no %> · <%= s.taken_by_name %> · <%= s.taken_at %>
         <span class="tag <%= s.ok && s.complete ? 'ok' : 'bad' %>"><%= !s.complete ? 'Incompleta' : (s.ok ? 'Conforme' : 'No conforme') %></span></summary>
       <div class="hscroll"><table class="grid compact">
-        <thead><tr><th>Característica</th><% for (const p of 'ABCDEFGH') { %><th><%= p %></th><% } %></tr></thead>
+        <thead><tr><th>Característica</th><% for (const p of 'ABCD') { %><th><%= p %></th><% } %></tr></thead>
         <tbody>
         <% for (const spec of ev.specs) { %>
           <tr><td><%= spec.characteristic %> (<%= spec.unit %>)</td>
@@ -96,7 +96,8 @@
     <% for (const t of ev.tests) { const r = t.result; %>
       <tr>
         <td><strong><%= t.type.name %></strong><% if (!t.type.active) { %> <small class="muted">(inactiva)</small><% } %></td>
-        <td><% if (!r) { %><span class="muted">Pendiente</span><% } else { %><span class="tag <%= r.result === 'pasa' ? 'ok' : 'bad' %>"><%= r.result === 'pasa' ? 'PASA' : 'NO PASA' %></span><% } %></td>
+        <td><% if (!r) { %><span class="muted">Pendiente</span><% } else { %><span class="tag <%= r.result === 'pasa' ? 'ok' : 'bad' %>"><%= r.result === 'pasa' ? 'PASA' : 'NO PASA' %></span><% if (r.detail) { const d = r.detail.split(','); %>
+          <div class="impactos" title="<%= r.score %> de <%= d.length %> impactos resistidos"><% d.forEach((v, i) => { %><span class="<%= v === '1' ? 'si' : 'no' %>"><%= i + 1 %>: <%= v === '1' ? '✓' : '✗' %></span><% }) %></div><% } %><% } %></td>
         <td><%= r ? (r.observations || '') : '' %></td>
         <td><%= r ? r.performed_by_name + ' · ' + r.performed_at : '' %></td>
         <% if (open) { %>
@@ -104,10 +105,26 @@
           <% if (t.type.active) { %>
           <form method="post" action="/lotes/<%= l.id %>/pruebas" class="test-form">
             <input type="hidden" name="test_type_id" value="<%= t.type.id %>">
+            <% if (t.type.checks > 0) { const prev = r && r.detail ? r.detail.split(',') : []; %>
+            <fieldset class="checklist" data-min="<%= t.type.min_ok || t.type.checks %>">
+              <legend>¿Resistió cada impacto? Pasa con <%= t.type.min_ok || t.type.checks %> de <%= t.type.checks %></legend>
+              <% for (let i = 1; i <= t.type.checks; i++) { %>
+              <div class="chk-row">
+                <span class="chk-n">Impacto <%= i %></span>
+                <div class="seg2" role="radiogroup" aria-label="Impacto <%= i %>">
+                  <label class="opt ok"><input type="radio" name="chk_<%= i %>" value="si" required <%= prev[i - 1] === '1' ? 'checked' : '' %>><span>✓ Resistió</span></label>
+                  <label class="opt bad"><input type="radio" name="chk_<%= i %>" value="no" <%= prev[i - 1] === '0' ? 'checked' : '' %>><span>✗ Falló</span></label>
+                </div>
+              </div>
+              <% } %>
+              <p class="chk-total muted" aria-live="polite"></p>
+            </fieldset>
+            <% } else { %>
             <div class="seg2" role="radiogroup" aria-label="Resultado de <%= t.type.name %>">
               <label class="opt ok"><input type="radio" name="result" value="pasa" required <%= r && r.result === 'pasa' ? 'checked' : '' %>><span>Pasa</span></label>
               <label class="opt bad"><input type="radio" name="result" value="no_pasa" <%= r && r.result === 'no_pasa' ? 'checked' : '' %>><span>No pasa</span></label>
             </div>
+            <% } %>
             <input name="observations" placeholder="Observaciones" value="<%= r ? (r.observations || '') : '' %>">
             <button class="btn small">Guardar</button>
           </form>

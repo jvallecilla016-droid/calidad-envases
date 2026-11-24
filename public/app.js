@@ -83,3 +83,24 @@
   window.addEventListener('offline', function () { document.body.classList.add('offline'); });
   window.addEventListener('online', function () { document.body.classList.remove('offline'); });
 })();
+
+// Prueba con casillas: muestra cuántos impactos resistió y si pasa.
+document.querySelectorAll('fieldset.checklist').forEach((fs) => {
+  const min = Number(fs.dataset.min);
+  const out = fs.querySelector('.chk-total');
+  const rows = fs.querySelectorAll('.chk-row');
+  const update = () => {
+    const marked = fs.querySelectorAll('input:checked');
+    const si = fs.querySelectorAll('input[value=si]:checked').length;
+    if (marked.length < rows.length) {
+      out.textContent = `Faltan ${rows.length - marked.length} casillas por marcar`;
+      out.className = 'chk-total muted';
+    } else {
+      const pasa = si >= min;
+      out.textContent = `${si} de ${rows.length} resistidos: ${pasa ? 'PASA' : 'NO PASA'}`;
+      out.className = `chk-total ${pasa ? 'ok' : 'bad'}`;
+    }
+  };
+  fs.addEventListener('change', update);
+  update();
+});
