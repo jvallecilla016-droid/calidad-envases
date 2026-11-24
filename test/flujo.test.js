@@ -1,7 +1,8 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { open, DEFAULT_PASSWORD } = require('../src/db');
+const { DEFAULT_PASSWORD } = require('../src/db');
+const { testDb } = require('./helpers');
 const { createApp } = require('../src/server');
 
 // Cliente HTTP mínimo con cookie de sesión.
@@ -21,7 +22,7 @@ function client(base) {
 }
 
 test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async (t) => {
-  const db = open(':memory:');
+  const db = await testDb();
   const server = createApp(db).listen(0);
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -32,8 +33,8 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   const jefe = await login('jefe');
   assert.strictEqual((await client(base).post('/login', { username: 'jefe', password: 'mal' })).status, 401);
 
-  const prod = db.prepare("SELECT * FROM products WHERE code = 'REF01-CF'").get();
-  const specs = db.prepare('SELECT * FROM specs WHERE product_id = ? ORDER BY sort').all(prod.id);
+  const prod = await db.prepare("SELECT * FROM products WHERE code = 'REF01-CF'").get();
+  const specs = await db.prepare('SELECT * FROM specs WHERE product_id = ? ORDER BY sort').all(prod.id);
   assert.strictEqual(specs.length, 6);
 
   // El inspector crea el lote con el número que digita la planta
@@ -56,31 +57,31 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   await insp.post(`/lotes/${lotId}/muestras`, form({ [`m_${diamExt.id}_C`]: '305' }));
   await insp.post(`/lotes/${lotId}/muestras`, form());
   const { evaluateLot } = require('../src/quality');
-  let ev = evaluateLot(db, lotId);
+  let ev = await evaluateLot(db, lotId);
   assert.strictEqual(ev.samples.length, 2);
   assert.strictEqual(ev.measurementsOk, false);
   assert.ok(ev.problems.some((p) => p.includes('punto C')));
 
   // Pruebas
-  const types = db.prepare('SELECT * FROM test_types').all();
+  const types = await db.prepare('SELECT * FROM test_types').all();
   for (const ty of types) await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: ty.id, result: 'pasa', observations: 'OK' });
 
   // El inspector no puede enviar a aprobación
   assert.strictEqual((await insp.post(`/lotes/${lotId}/enviar`)).status, 403);
   await analista.post(`/lotes/${lotId}/enviar`);
-  assert.strictEqual(evaluateLot(db, lotId).lot.status, 'en_revision');
+  assert.strictEqual((await evaluateLot(db, lotId)).lot.status, 'en_revision');
   // El jefe no puede liberar un lote no conforme
   await jefe.post(`/lotes/${lotId}/liberar`);
-  assert.strictEqual(evaluateLot(db, lotId).lot.status, 'en_revision');
+  assert.strictEqual((await evaluateLot(db, lotId)).lot.status, 'en_revision');
 
   // Se devuelve, se corrige la muestra 1, se reenvía y se libera
   await analista.post(`/lotes/${lotId}/devolver`);
-  ev = evaluateLot(db, lotId);
+  ev = await evaluateLot(db, lotId);
   await insp.post(`/lotes/${lotId}/muestras/${ev.samples[0].id}`, form());
   await analista.post(`/lotes/${lotId}/enviar`);
   assert.strictEqual((await analista.post(`/lotes/${lotId}/liberar`)).status, 403, 'solo el jefe libera');
   await jefe.post(`/lotes/${lotId}/liberar`, { decision_notes: 'Liberado para despacho' });
-  ev = evaluateLot(db, lotId);
+  ev = await evaluateLot(db, lotId);
   assert.strictEqual(ev.lot.status, 'liberado');
   const year = new Date().getFullYear();
   assert.strictEqual(ev.lot.certificate_number, `CL-${year}-0001`);
@@ -92,7 +93,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   for (const ty of types) await insp.post(`/lotes/${lot2}/pruebas`, { test_type_id: ty.id, result: 'pasa' });
   await analista.post(`/lotes/${lot2}/enviar`);
   await jefe.post(`/lotes/${lot2}/liberar`);
-  assert.strictEqual(evaluateLot(db, lot2).lot.certificate_number, `CL-${year}-0002`);
+  assert.strictEqual((await evaluateLot(db, lot2)).lot.certificate_number, `CL-${year}-0002`);
 
   // PDF
   r = await insp.get(`/certificados/CL-${year}-0001.pdf`);
@@ -123,12 +124,12 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
 });
 
 test('una prueba nueva se vuelve obligatoria para liberar', async () => {
-  const db = open(':memory:');
-  db.prepare("INSERT INTO test_types (code, name) VALUES ('APILAMIENTO', 'Prueba de apilamiento')").run();
-  const prod = db.prepare("SELECT id FROM products WHERE code = 'REF04-CF'").get();
-  const lot = db.prepare("INSERT INTO lots (lot_number, product_id, production_date) VALUES ('X1', ?, '2026-11-23')").run(prod.id).lastInsertRowid;
+  const db = await testDb();
+  await db.prepare("INSERT INTO test_types (code, name) VALUES ('APILAMIENTO', 'Prueba de apilamiento')").run();
+  const prod = await db.prepare("SELECT id FROM products WHERE code = 'REF04-CF'").get();
+  const lot = (await db.prepare("INSERT INTO lots (lot_number, product_id, production_date) VALUES ('X1', ?, '2026-11-23')").run(prod.id)).lastInsertRowid;
   const { evaluateLot } = require('../src/quality');
-  const ev = evaluateLot(db, lot);
+  const ev = await evaluateLot(db, lot);
   assert.strictEqual(ev.tests.length, 3);
   assert.ok(ev.problems.some((p) => p.includes('apilamiento')));
 });

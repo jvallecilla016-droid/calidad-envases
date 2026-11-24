@@ -33,7 +33,7 @@ function where(f) {
   return { sql: cond.join(' AND '), args };
 }
 
-function lotesFiltrados(db, f) {
+async function lotesFiltrados(db, f) {
   const w = where(f);
   return db.prepare(`
     SELECT l.id, l.lot_number, l.production_date, l.status, p.id AS product_id, p.code AS product_code,
@@ -46,9 +46,9 @@ function lotesFiltrados(db, f) {
     ORDER BY l.production_date DESC, l.id DESC`).all(...w.args);
 }
 
-function calcular(db, filtros) {
+async function calcular(db, filtros) {
   const f = normalizaFiltros(filtros);
-  const lotes = lotesFiltrados(db, f);
+  const lotes = await lotesFiltrados(db, f);
   const w = where(f);
 
   const cuenta = (e) => lotes.filter((l) => l.status === e).length;
@@ -90,7 +90,7 @@ function calcular(db, filtros) {
     .sort((a, b) => (a.codigo < b.codigo ? -1 : 1));
 
   // Lecturas fuera de LIC–LSC.
-  const fuera = db.prepare(`
+  const fuera = (await db.prepare(`
     SELECT l.id AS lot_id, l.lot_number, l.production_date, p.code AS product_code, sp.characteristic, sp.unit,
       m.point, s.sample_no, m.value, m.lic, m.lsc
     FROM measurements m
@@ -99,7 +99,7 @@ function calcular(db, filtros) {
     JOIN products p ON p.id = l.product_id
     JOIN specs sp ON sp.id = m.spec_id
     WHERE ${w.sql} AND (m.value < m.lic OR m.value > m.lsc)
-    ORDER BY l.production_date DESC, l.id DESC, s.sample_no, sp.sort, m.point`).all(...w.args)
+    ORDER BY l.production_date DESC, l.id DESC, s.sample_no, sp.sort, m.point`).all(...w.args))
     .map((r) => ({ ...r, desviacion: Math.round((r.value > r.lsc ? r.value - r.lsc : r.value - r.lic) * 100) / 100 }));
 
   const porPunto = 'ABCDEFGH'.split('').map((punto) => ({ punto, fuera: fuera.filter((r) => r.point === punto).length }));
@@ -109,7 +109,7 @@ function calcular(db, filtros) {
     .sort((a, b) => b.fuera - a.fuera);
 
   // Pruebas de liberación.
-  const pruebas = db.prepare(`
+  const pruebas = (await db.prepare(`
     SELECT t.name AS prueba, t.active,
       SUM(CASE WHEN r.result = 'pasa' THEN 1 ELSE 0 END) AS pasa,
       SUM(CASE WHEN r.result = 'no_pasa' THEN 1 ELSE 0 END) AS no_pasa
@@ -118,7 +118,7 @@ function calcular(db, filtros) {
     JOIN lots l ON l.id = r.lot_id
     JOIN products p ON p.id = l.product_id
     WHERE ${w.sql}
-    GROUP BY t.id ORDER BY t.id`).all(...w.args)
+    GROUP BY t.id, t.name, t.active ORDER BY t.id`).all(...w.args))
     .map((t) => ({ ...t, aprobacion: pct(t.pasa, t.pasa + t.no_pasa) }));
 
   return { filtros: f, resumen, porSemana, porProducto, porPunto, porCaracteristica, pruebas, fuera, lotes };

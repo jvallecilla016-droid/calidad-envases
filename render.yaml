@@ -1,0 +1,18 @@
+# Despliegue en Render (plan gratis). La base de datos está en Neon (PostgreSQL gratis).
+services:
+  - type: web
+    name: calidad-envases
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_VERSION
+        value: "22.13.0"
+      - key: DATABASE_URL
+        sync: false # se pega a mano: cadena de conexión de Neon
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: COMPANY_NAME
+        value: Planta de Envases Plásticos
