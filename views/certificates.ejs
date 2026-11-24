@@ -1,0 +1,19 @@
+<%- include('partials/header') %>
+<h1>Certificados de liberación</h1>
+<% if (!certs.length) { %><p class="muted">Aún no se ha liberado ningún lote.</p><% } else { %>
+<table class="grid">
+  <thead><tr><th>Consecutivo</th><th>Lote</th><th>Producto</th><th>Molde</th><th>Emitido</th><th>Aprobó</th><th></th></tr></thead>
+  <tbody>
+  <% for (const c of certs) { %>
+    <tr>
+      <td><strong><%= c.number %></strong></td>
+      <td><a href="/lotes/<%= c.lot_id %>"><%= c.lot_number %></a></td>
+      <td><%= c.product_name %></td><td><%= c.molde %></td>
+      <td><%= c.issued_at %></td><td><%= c.issued_by_name %></td>
+      <td><a class="btn small" href="/certificados/<%= c.number %>.pdf" target="_blank">PDF</a></td>
+    </tr>
+  <% } %>
+  </tbody>
+</table>
+<% } %>
+<%- include('partials/footer') %>

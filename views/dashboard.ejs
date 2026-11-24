@@ -1,0 +1,35 @@
+<%- include('partials/header') %>
+<div class="head">
+  <h1>Lotes de producción</h1>
+  <a class="btn primary" href="/lotes/nuevo">+ Nuevo lote</a>
+</div>
+<div class="tabs">
+  <a href="/" class="<%= !status ? 'on' : '' %>">Todos</a>
+  <% for (const [k, v] of Object.entries(STATUS_NAMES)) { %>
+    <a href="/?estado=<%= k %>" class="<%= status === k ? 'on' : '' %>"><%= v %> <span class="count"><%= counts[k] || 0 %></span></a>
+  <% } %>
+  <form class="search" method="get" action="/">
+    <% if (status) { %><input type="hidden" name="estado" value="<%= status %>"><% } %>
+    <input name="q" value="<%= q %>" placeholder="Buscar lote, producto o certificado">
+  </form>
+</div>
+<% if (!lots.length) { %>
+  <p class="muted">No hay lotes<%= status ? ' en este estado' : '' %>. Crea uno con «Nuevo lote».</p>
+<% } else { %>
+<table class="grid">
+  <thead><tr><th>Lote</th><th>Producto</th><th>Molde</th><th>Fecha prod.</th><th>Estado</th><th>Certificado</th></tr></thead>
+  <tbody>
+  <% for (const l of lots) { %>
+    <tr>
+      <td><a href="/lotes/<%= l.id %>"><strong><%= l.lot_number %></strong></a></td>
+      <td><%= l.product_name %> <small class="muted"><%= l.product_code %></small></td>
+      <td><%= l.molde %></td>
+      <td><%= l.production_date %></td>
+      <td><span class="badge <%= l.status %>"><%= STATUS_NAMES[l.status] %></span></td>
+      <td><% if (l.certificate_number) { %><a href="/certificados/<%= l.certificate_number %>.pdf" target="_blank"><%= l.certificate_number %></a><% } else { %>—<% } %></td>
+    </tr>
+  <% } %>
+  </tbody>
+</table>
+<% } %>
+<%- include('partials/footer') %>

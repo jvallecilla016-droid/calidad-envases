@@ -1,0 +1,12 @@
+<%- include('partials/header') %>
+<div class="login">
+  <h1>Control de calidad</h1>
+  <p class="muted"><%= company %></p>
+  <% if (error) { %><div class="flash error"><%= error %></div><% } %>
+  <form method="post" action="/login" class="card">
+    <label>Usuario <input name="username" autocomplete="username" required autofocus></label>
+    <label>Contraseña <input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary">Ingresar</button>
+  </form>
+</div>
+<%- include('partials/footer') %>

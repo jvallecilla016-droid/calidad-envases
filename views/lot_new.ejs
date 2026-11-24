@@ -1,0 +1,25 @@
+<%- include('partials/header') %>
+<h1>Nuevo lote</h1>
+<% if (error) { %><div class="flash error"><%= error %></div><% } %>
+<form method="post" action="/lotes" class="card narrow">
+  <label>Número de lote * <input name="lot_number" value="<%= form.lot_number || '' %>" required placeholder="Digite el lote tal como aparece en producción"></label>
+  <label>Producto *
+    <select name="product_id" required>
+      <option value="">Seleccione…</option>
+      <% for (const p of products) { %>
+        <option value="<%= p.id %>" <%= String(form.product_id) === String(p.id) ? 'selected' : '' %>><%= p.code %> · <%= p.name %> · <%= p.molde %></option>
+      <% } %>
+    </select>
+  </label>
+  <div class="row">
+    <label>Fecha de producción * <input type="date" name="production_date" value="<%= form.production_date || new Date().toISOString().slice(0,10) %>" required></label>
+    <label>Turno <input name="shift" value="<%= form.shift || '' %>" placeholder="1, 2, 3…"></label>
+  </div>
+  <div class="row">
+    <label>Máquina / inyectora <input name="machine" value="<%= form.machine || '' %>"></label>
+    <label>Cantidad (unidades) <input type="number" min="0" name="quantity" value="<%= form.quantity || '' %>"></label>
+  </div>
+  <label>Observaciones <textarea name="notes" rows="2"><%= form.notes || '' %></textarea></label>
+  <button class="btn primary">Crear lote</button>
+</form>
+<%- include('partials/footer') %>

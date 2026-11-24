@@ -1,0 +1,26 @@
+<%- include('partials/header') %>
+<h1>Pruebas de liberación</h1>
+<p class="muted">Toda prueba activa es obligatoria: un lote solo se libera si todas tienen resultado «Pasa».</p>
+<table class="grid">
+  <thead><tr><th>Código</th><th>Prueba</th><th>Descripción</th><th>Estado</th><% if (user.role !== 'inspector') { %><th></th><% } %></tr></thead>
+  <tbody>
+  <% for (const t of types) { %>
+    <tr class="<%= t.active ? '' : 'inactive' %>">
+      <td><%= t.code %></td><td><strong><%= t.name %></strong></td><td><%= t.description || '' %></td>
+      <td><%= t.active ? 'Activa' : 'Inactiva' %></td>
+      <% if (user.role !== 'inspector') { %>
+      <td><form method="post" action="/pruebas/<%= t.id %>/estado" class="inline"><button class="btn small"><%= t.active ? 'Desactivar' : 'Activar' %></button></form></td>
+      <% } %>
+    </tr>
+  <% } %>
+  </tbody>
+</table>
+<% if (user.role !== 'inspector') { %>
+<form method="post" action="/pruebas" class="card narrow">
+  <h2>Agregar prueba</h2>
+  <label>Nombre * <input name="name" required placeholder="Ej. Prueba de apilamiento"></label>
+  <label>Descripción / método <textarea name="description" rows="2"></textarea></label>
+  <button class="btn primary">Agregar</button>
+</form>
+<% } %>
+<%- include('partials/footer') %>

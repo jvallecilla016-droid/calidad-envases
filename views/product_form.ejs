@@ -1,0 +1,57 @@
+<%- include('partials/header') %>
+<% const canEdit = user.role !== 'inspector'; const dis = canEdit ? '' : 'disabled'; %>
+<h1><%= product.id ? product.name : 'Nuevo producto' %></h1>
+<% if (error) { %><div class="flash error"><%= error %></div><% } %>
+<form method="post" action="/productos<%= product.id ? '/' + product.id : '' %>" class="card">
+  <div class="row wrap">
+    <label>Código * <input name="code" value="<%= product.code || '' %>" required <%= dis %>></label>
+    <label>Nombre * <input name="name" value="<%= product.name || '' %>" required <%= dis %>></label>
+    <label>Referencia <input name="referencia" value="<%= product.referencia || '' %>" <%= dis %>></label>
+    <label>Capacidad <input name="capacidad" value="<%= product.capacidad || '' %>" <%= dis %>></label>
+    <label>Tipo de molde *
+      <select name="molde" required <%= dis %>>
+        <% for (const m of ['Colada fría', 'Colada caliente']) { %><option <%= product.molde === m ? 'selected' : '' %>><%= m %></option><% } %>
+      </select>
+    </label>
+    <label>Uso <input name="uso" value="<%= product.uso || '' %>" placeholder="Pintura / Alimentos" <%= dis %>></label>
+    <% if (product.id) { %><label class="radio"><input type="checkbox" name="active" value="1" <%= product.active ? 'checked' : '' %> <%= dis %>> Activo</label><% } %>
+  </div>
+
+  <h3>Especificaciones</h3>
+  <p class="muted">Las de peso llevan 1 lectura por muestra. Las de diámetro llevan 8 lecturas (puntos A–H). Si cambias un límite, aplica a las muestras nuevas; las ya registradas conservan el límite con que se midieron.</p>
+  <table class="grid" id="specs">
+    <thead><tr><th>Componente</th><th>Característica</th><th>Unidad</th><th>Lecturas</th><th>LIC</th><th>LCC</th><th>LSC</th><% if (canEdit) { %><th></th><% } %></tr></thead>
+    <tbody>
+    <% const rows = specs.length ? specs : []; for (const s of rows) { %>
+      <tr>
+        <td><input type="hidden" name="s_id" value="<%= s.id || '' %>"><input name="s_component" value="<%= s.component %>" <%= dis %>></td>
+        <td><input name="s_characteristic" value="<%= s.characteristic %>" <%= dis %>></td>
+        <td><select name="s_unit" <%= dis %>><% for (const u of ['g','mm','cm','ml','%']) { %><option <%= s.unit === u ? 'selected' : '' %>><%= u %></option><% } %></select></td>
+        <td><select name="s_points" <%= dis %>><option value="1" <%= !s.points ? 'selected' : '' %>>1</option><option value="8" <%= s.points ? 'selected' : '' %>>8 (A–H)</option></select></td>
+        <td><input class="num" name="s_lic" value="<%= s.lic ?? '' %>" <%= dis %>></td>
+        <td><input class="num" name="s_lcc" value="<%= s.lcc ?? '' %>" <%= dis %>></td>
+        <td><input class="num" name="s_lsc" value="<%= s.lsc ?? '' %>" <%= dis %>></td>
+        <% if (canEdit) { %><td><button type="button" class="btn small danger" onclick="this.closest('tr').remove()">Quitar</button></td><% } %>
+      </tr>
+    <% } %>
+    </tbody>
+  </table>
+  <% if (canEdit) { %>
+    <template id="row-tpl">
+      <tr>
+        <td><input type="hidden" name="s_id" value=""><input name="s_component" value="Cuñete"></td>
+        <td><input name="s_characteristic" placeholder="Ej. Diámetro externo cuñete"></td>
+        <td><select name="s_unit"><option>g</option><option selected>mm</option><option>cm</option><option>ml</option><option>%</option></select></td>
+        <td><select name="s_points"><option value="1">1</option><option value="8" selected>8 (A–H)</option></select></td>
+        <td><input class="num" name="s_lic"></td><td><input class="num" name="s_lcc"></td><td><input class="num" name="s_lsc"></td>
+        <td><button type="button" class="btn small danger" onclick="this.closest('tr').remove()">Quitar</button></td>
+      </tr>
+    </template>
+    <div class="actions">
+      <button type="button" class="btn" onclick="document.querySelector('#specs tbody').appendChild(document.getElementById('row-tpl').content.cloneNode(true))">+ Agregar especificación</button>
+      <button class="btn primary">Guardar producto</button>
+    </div>
+  <% } %>
+</form>
+<p><a href="/productos">← Volver a productos</a></p>
+<%- include('partials/footer') %>

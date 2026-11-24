@@ -1,0 +1,27 @@
+<%- include('partials/header') %>
+<h1>Usuarios</h1>
+<p class="muted">Perfiles: <strong>Operario / Inspector</strong> registra muestras y pruebas. <strong>Analista de calidad</strong> además mantiene productos y pruebas y envía lotes a aprobación. <strong>Jefe de calidad</strong> además aprueba o rechaza lotes y administra usuarios.</p>
+<table class="grid">
+  <thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil</th><th>Activo</th><th>Nueva contraseña</th><th></th></tr></thead>
+  <tbody>
+  <% for (const u of users) { %>
+    <tr class="<%= u.active ? '' : 'inactive' %>">
+      <td><code><%= u.username %></code></td>
+      <td><input form="u<%= u.id %>" name="full_name" value="<%= u.full_name %>" required></td>
+      <td><select form="u<%= u.id %>" name="role"><% for (const [k, v] of Object.entries(ROLE_NAMES)) { %><option value="<%= k %>" <%= u.role === k ? 'selected' : '' %>><%= v %></option><% } %></select></td>
+      <td><input form="u<%= u.id %>" type="checkbox" name="active" value="1" <%= u.active ? 'checked' : '' %>></td>
+      <td><input form="u<%= u.id %>" type="password" name="password" minlength="8" placeholder="(sin cambio)" autocomplete="new-password"></td>
+      <td><form id="u<%= u.id %>" method="post" action="/usuarios/<%= u.id %>"><button class="btn small">Guardar</button></form></td>
+    </tr>
+  <% } %>
+  </tbody>
+</table>
+<form method="post" action="/usuarios" class="card narrow">
+  <h2>Crear usuario</h2>
+  <label>Usuario (para ingresar) * <input name="username" required pattern="[a-zA-Z0-9._\-]{3,30}"></label>
+  <label>Nombre completo * <input name="full_name" required></label>
+  <label>Perfil * <select name="role"><% for (const [k, v] of Object.entries(ROLE_NAMES)) { %><option value="<%= k %>"><%= v %></option><% } %></select></label>
+  <label>Contraseña inicial (mínimo 8) * <input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+  <button class="btn primary">Crear</button>
+</form>
+<%- include('partials/footer') %>
