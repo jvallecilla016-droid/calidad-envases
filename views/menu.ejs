@@ -5,7 +5,7 @@
   <a href="/certificados">Certificados de liberación<span>›</span></a>
   <a href="/productos">Productos y especificaciones<span>›</span></a>
   <a href="/pruebas">Pruebas de liberación<span>›</span></a>
-  <% if (user.role === 'jefe') { %><a href="/usuarios">Usuarios<span>›</span></a><% } %>
+  <% if (user.admin) { %><a href="/usuarios">Usuarios<span>›</span></a><% } %>
   <a href="/cuenta">Mi cuenta y contraseña<span>›</span></a>
 </div>
 <div class="card" id="install-card" hidden>

@@ -24,7 +24,7 @@
     <a href="/certificados">Certificados</a>
     <a href="/productos">Productos</a>
     <a href="/pruebas">Pruebas</a>
-    <% if (user.role === 'jefe') { %><a href="/usuarios">Usuarios</a><% } %>
+    <% if (user.admin) { %><a href="/usuarios">Usuarios</a><% } %>
   </nav>
   <div class="who">
     <a href="/cuenta"><%= user.full_name %></a> <small><%= ROLE_NAMES[user.role] %></small>

@@ -19,7 +19,9 @@ Aplicación web para registrar las mediciones de calidad de cada lote de producc
 |---|---|
 | Aprendiz / Operario | Crear lotes, registrar muestras y resultados de pruebas |
 | Auxiliar de calidad | Lo anterior + editar productos y especificaciones, crear pruebas, eliminar muestras, enviar lotes a aprobación |
-| Jefe de calidad | Lo anterior + aprobar (emite el certificado) o rechazar lotes, administrar usuarios |
+| Jefe de calidad | Lo anterior + aprobar (emite el certificado) o rechazar lotes |
+
+Solo el administrador (`lgomez`, Luis Eduardo Gómez) crea, modifica y elimina usuarios y elimina lotes (columna `users.is_admin`).
 
 Usuarios iniciales (contraseña `Calidad2026*` para los tres): `inspector`, `analista`, `jefe`.
 
