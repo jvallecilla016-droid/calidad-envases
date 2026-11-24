@@ -89,7 +89,7 @@ fieldset.spec { border: 1px solid var(--line); background: #fff; border-radius: 
 fieldset.spec legend { font-weight: 600; padding: 0 6px; font-size: .95rem; }
 fieldset.spec legend small, .w small { color: var(--muted); font-weight: 400; margin-left: 4px; white-space: nowrap; }
 fieldset.spec.has-out { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad) inset; } fieldset.spec.done { border-color: var(--ok); }
-.points { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; }
+.points { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 520px; }
 .pt { margin: 0; display: grid; gap: 2px; text-align: center; font-weight: 600; font-size: .8rem; color: var(--muted); }
 .pt input, .w input { margin: 0; text-align: center; padding: 10px 4px; font-size: 17px; font-variant-numeric: tabular-nums; }
 .weights { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
@@ -139,3 +139,16 @@ fieldset.spec.has-out { border-color: var(--bad); box-shadow: 0 0 0 1px var(--ba
   .head .btn { width: 100%; text-align: center; }
 }
 body.offline::before { content: "Sin señal · lo que guardes no llegará hasta que vuelva la conexión"; position: fixed; top: 0; left: 0; right: 0; z-index: 50; background: var(--bad); color: #fff; font-size: .8rem; text-align: center; padding: calc(4px + env(safe-area-inset-top)) 8px 4px; }
+
+/* Prueba con casillas (impacto) */
+.checklist { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 0; display: grid; gap: 6px; min-width: 260px; }
+.checklist legend { font-size: .85rem; font-weight: 600; padding: 0 4px; }
+.chk-row { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.chk-n { font-weight: 600; font-size: .9rem; white-space: nowrap; }
+.chk-total { margin: 2px 0 0; font-weight: 600; }
+.chk-total.ok { color: var(--ok); } .chk-total.bad { color: var(--bad); }
+.impactos { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.impactos span { font-size: .75rem; padding: 1px 6px; border-radius: 6px; background: #e8f5ec; color: var(--ok); }
+.impactos span.no { background: #fdecea; color: var(--bad); }
+@media (max-width: 760px) { .checklist { min-width: 0; } .chk-row .seg2 { width: auto; flex: 1; } }
+.casillas-form { display:flex; gap:6px; align-items:flex-end; flex-wrap:wrap; margin-top:6px; } .casillas-form label { font-size:.75rem; margin:0; } .casillas-form input { width:70px; margin:0; }

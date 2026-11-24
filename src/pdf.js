@@ -57,7 +57,7 @@ function certificatePdf(snap, stream) {
   }
   y += 6;
   doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#444')
-    .text('Cada diámetro se midió en los puntos A–H de cada muestra. Todas las lecturas quedaron dentro de LIC–LSC.', L, y, { width: W });
+    .text('Cada diámetro se midió en los puntos A–D de cada muestra. Todas las lecturas quedaron dentro de LIC–LSC.', L, y, { width: W });
   doc.fillColor('#000');
   y += 18;
 
@@ -66,7 +66,7 @@ function certificatePdf(snap, stream) {
   const tcols = [['Prueba', 120, 'left'], ['Resultado', 60], ['Realizada por', 110, 'left'], ['Fecha', 85], ['Observaciones', W - 375, 'left']];
   y = tableHeader(doc, tcols, L, y);
   for (const t of snap.tests) {
-    y = tableRow(doc, tcols, [t.name, t.result === 'pasa' ? 'PASA' : 'NO PASA', t.performed_by || '—', t.performed_at, t.observations || ''], L, y,
+    y = tableRow(doc, tcols, [t.name, (t.result === 'pasa' ? 'PASA' : 'NO PASA') + (t.score != null && t.checks ? ` (${t.score}/${t.checks})` : ''), t.performed_by || '—', t.performed_at, t.observations || ''], L, y,
       { color1: t.result === 'pasa' ? '#1d7a35' : '#b3261e' });
   }
   y += 14;
@@ -99,7 +99,7 @@ function certificatePdf(snap, stream) {
   doc.addPage();
   y = 40;
   y = sectionTitle(doc, `Anexo. Lecturas por muestra — Certificado ${snap.number} — Lote ${lot.lot_number}`, L, y, W);
-  const pcols = [['Característica', 150, 'left'], ...'ABCDEFGH'.split('').map((p) => [p, (W - 150) / 8])];
+  const pcols = [['Característica', 150, 'left'], ...'ABCD'.split('').map((p) => [p, (W - 150) / 4])];
   for (const sample of snap.samples) {
     if (y > doc.page.height - 150) { doc.addPage(); y = 40; }
     doc.font('Helvetica-Bold').fontSize(9).text(`Muestra ${sample.sample_no}  ·  ${sample.taken_by || ''}  ·  ${sample.taken_at}`, L, y);

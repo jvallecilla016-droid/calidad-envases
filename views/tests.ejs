@@ -1,12 +1,22 @@
 <%- include('partials/header') %>
 <h1>Pruebas de liberación</h1>
-<p class="muted">Toda prueba activa es obligatoria: un lote solo se libera si todas tienen resultado «Pasa».</p>
+<p class="muted">Toda prueba activa es obligatoria: un lote solo se libera si todas tienen resultado «Pasa». Una prueba con casillas (como la de impacto) exige marcar todas las casillas y pasa cuando las resistidas llegan al mínimo.</p>
 <table class="grid">
-  <thead><tr><th>Código</th><th>Prueba</th><th>Descripción</th><th>Estado</th><% if (user.role !== 'inspector') { %><th></th><% } %></tr></thead>
+  <thead><tr><th>Código</th><th>Prueba</th><th>Descripción</th><th>Cómo se registra</th><th>Estado</th><% if (user.role !== 'inspector') { %><th></th><% } %></tr></thead>
   <tbody>
   <% for (const t of types) { %>
     <tr class="<%= t.active ? '' : 'inactive' %>">
       <td><%= t.code %></td><td><strong><%= t.name %></strong></td><td><%= t.description || '' %></td>
+      <td>
+        <%= t.checks ? `${t.checks} casillas, pasa con ${t.min_ok} o más` : 'Pasa / No pasa' %>
+        <% if (user.role !== 'inspector') { %>
+        <form method="post" action="/pruebas/<%= t.id %>/casillas" class="inline casillas-form">
+          <label>Casillas <input type="number" name="checks" min="0" max="10" value="<%= t.checks || 0 %>" inputmode="numeric"></label>
+          <label>Mínimo para pasar <input type="number" name="min_ok" min="1" max="10" value="<%= t.min_ok || '' %>" inputmode="numeric"></label>
+          <button class="btn small">Cambiar</button>
+        </form>
+        <% } %>
+      </td>
       <td><%= t.active ? 'Activa' : 'Inactiva' %></td>
       <% if (user.role !== 'inspector') { %>
       <td><form method="post" action="/pruebas/<%= t.id %>/estado" class="inline"><button class="btn small"><%= t.active ? 'Desactivar' : 'Activar' %></button></form></td>
@@ -20,6 +30,10 @@
   <h2>Agregar prueba</h2>
   <label>Nombre * <input name="name" required placeholder="Ej. Prueba de apilamiento"></label>
   <label>Descripción / método <textarea name="description" rows="2"></textarea></label>
+  <div class="row">
+    <label>Casillas (0 = solo pasa / no pasa) <input type="number" name="checks" min="0" max="10" value="0" inputmode="numeric"></label>
+    <label>Mínimo de casillas para pasar <input type="number" name="min_ok" min="1" max="10" inputmode="numeric"></label>
+  </div>
   <button class="btn primary">Agregar</button>
 </form>
 <% } %>

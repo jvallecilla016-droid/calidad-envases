@@ -102,7 +102,7 @@ async function calcular(db, filtros) {
     ORDER BY l.production_date DESC, l.id DESC, s.sample_no, sp.sort, m.point`).all(...w.args))
     .map((r) => ({ ...r, desviacion: Math.round((r.value > r.lsc ? r.value - r.lsc : r.value - r.lic) * 100) / 100 }));
 
-  const porPunto = 'ABCDEFGH'.split('').map((punto) => ({ punto, fuera: fuera.filter((r) => r.point === punto).length }));
+  const porPunto = 'ABCD'.split('').map((punto) => ({ punto, fuera: fuera.filter((r) => r.point === punto).length }));
   const caracs = new Map();
   for (const r of fuera) caracs.set(r.characteristic, (caracs.get(r.characteristic) || 0) + 1);
   const porCaracteristica = [...caracs.entries()].map(([caracteristica, n]) => ({ caracteristica, fuera: n }))

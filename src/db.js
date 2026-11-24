@@ -3,7 +3,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 const bcrypt = require('bcryptjs');
 
-const POINTS_8 = 'A,B,C,D,E,F,G,H';
+// Los diámetros se miden en 4 puntos.
+const POINTS = 'A,B,C,D';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -109,6 +110,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail TEXT,
   created_at TEXT NOT NULL DEFAULT (__NOW__)
 );
+CREATE TABLE IF NOT EXISTS meta (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
 `;
 
 // Datos tomados de las fichas técnicas (fotos del manual de calidad).
@@ -120,10 +125,10 @@ const SEED_PRODUCTS = [
     specs: [
       ['Cuñete', 'Peso cuñete', 'g', '', 800, 810, 820],
       ['Tapa', 'Peso tapa', 'g', '', 225, 230, 235],
-      ['Cuñete', 'Diámetro externo cuñete', 'mm', POINTS_8, 298, 301, 304],
-      ['Cuñete', 'Diámetro interno cuñete', 'mm', POINTS_8, 292, 295, 298],
-      ['Tapa', 'Diámetro externo tapa', 'mm', POINTS_8, 300, 302, 304],
-      ['Tapa', 'Diámetro interno tapa', 'mm', POINTS_8, 289, 291, 293],
+      ['Cuñete', 'Diámetro externo cuñete', 'mm', POINTS, 298, 301, 304],
+      ['Cuñete', 'Diámetro interno cuñete', 'mm', POINTS, 292, 295, 298],
+      ['Tapa', 'Diámetro externo tapa', 'mm', POINTS, 300, 302, 304],
+      ['Tapa', 'Diámetro interno tapa', 'mm', POINTS, 289, 291, 293],
     ],
   },
   {
@@ -131,10 +136,10 @@ const SEED_PRODUCTS = [
     specs: [
       ['Cuñete', 'Peso cuñete', 'g', '', 800, 810, 820],
       ['Tapa', 'Peso tapa', 'g', '', 246, 250, 254],
-      ['Cuñete', 'Diámetro externo cuñete', 'mm', POINTS_8, 298, 301, 304],
-      ['Cuñete', 'Diámetro interno cuñete', 'mm', POINTS_8, 292, 295, 298],
-      ['Tapa', 'Diámetro externo tapa', 'mm', POINTS_8, 300, 302, 304],
-      ['Tapa', 'Diámetro interno tapa', 'mm', POINTS_8, 286, 290, 294],
+      ['Cuñete', 'Diámetro externo cuñete', 'mm', POINTS, 298, 301, 304],
+      ['Cuñete', 'Diámetro interno cuñete', 'mm', POINTS, 292, 295, 298],
+      ['Tapa', 'Diámetro externo tapa', 'mm', POINTS, 300, 302, 304],
+      ['Tapa', 'Diámetro interno tapa', 'mm', POINTS, 286, 290, 294],
     ],
   },
   {
@@ -149,10 +154,10 @@ const SEED_PRODUCTS = [
     specs: [
       ['Cuñete', 'Peso cuñete', 'g', '', 430, 440, 450],
       ['Tapa', 'Peso tapa', 'g', '', 85, 95, 105],
-      ['Cuñete', 'Diámetro externo cuñete', 'mm', POINTS_8, 238, 242, 246],
-      ['Cuñete', 'Diámetro interno cuñete', 'mm', POINTS_8, 228, 232, 236],
-      ['Tapa', 'Diámetro externo tapa', 'mm', POINTS_8, 248, 250, 252],
-      ['Tapa', 'Diámetro interno tapa', 'mm', POINTS_8, 228, 230, 232],
+      ['Cuñete', 'Diámetro externo cuñete', 'mm', POINTS, 238, 242, 246],
+      ['Cuñete', 'Diámetro interno cuñete', 'mm', POINTS, 228, 232, 236],
+      ['Tapa', 'Diámetro externo tapa', 'mm', POINTS, 248, 250, 252],
+      ['Tapa', 'Diámetro interno tapa', 'mm', POINTS, 228, 230, 232],
     ],
   },
   {
@@ -166,10 +171,10 @@ const SEED_PRODUCTS = [
     code: 'REF05-CF', name: 'Galón cónico Ref. 05', referencia: '05', capacidad: '1 galón', molde: 'Colada fría',
     specs: [
       ['Galón', 'Peso galón', 'g', '', 165, 170, 175],
-      ['Galón', 'Diámetro externo cuñete', 'mm', POINTS_8, 238, 242, 246],
-      ['Galón', 'Diámetro interno cuñete', 'mm', POINTS_8, 228, 232, 236],
-      ['Tapa', 'Diámetro externo tapa', 'mm', POINTS_8, 248, 250, 252],
-      ['Tapa', 'Diámetro interno tapa', 'mm', POINTS_8, 228, 230, 232],
+      ['Galón', 'Diámetro externo cuñete', 'mm', POINTS, 238, 242, 246],
+      ['Galón', 'Diámetro interno cuñete', 'mm', POINTS, 228, 232, 236],
+      ['Tapa', 'Diámetro externo tapa', 'mm', POINTS, 248, 250, 252],
+      ['Tapa', 'Diámetro interno tapa', 'mm', POINTS, 228, 230, 232],
     ],
   },
   {
@@ -284,7 +289,8 @@ class PgStore {
     let out = q.replace(/\?/g, () => `$${++i}`)
       .replace(/\bNOW\(\)/g, PG_NOW)
       .replace(/\bLIKE\b/g, 'ILIKE');
-    if (/^\s*INSERT\b/i.test(out) && !/\bRETURNING\b/i.test(out)) out += ' RETURNING id';
+    // Todas las tablas tienen id, salvo meta.
+    if (/^\s*INSERT\b/i.test(out) && !/\bRETURNING\b/i.test(out) && !/^\s*INSERT INTO meta\b/i.test(out)) out += ' RETURNING id';
     return out;
   }
 
@@ -323,7 +329,7 @@ class PgStore {
   async close() { await this.pool.end(); }
 }
 
-const TABLES = ['audit_log', 'certificates', 'test_results', 'measurements', 'samples', 'lots', 'test_types', 'specs', 'products', 'users', 'session'];
+const TABLES = ['meta', 'audit_log', 'certificates', 'test_results', 'measurements', 'samples', 'lots', 'test_types', 'specs', 'products', 'users', 'session'];
 
 function pgSchema() {
   return SCHEMA
@@ -362,7 +368,35 @@ async function open(target, { reset = false } = {}) {
     await db.exec(SCHEMA.replace(/__NOW__/g, 'NOW()'));
   }
   await seed(db);
+  await migrate(db);
   return db;
+}
+
+// Cambios de estructura sobre bases ya existentes (la de Neon incluida).
+// Cada paso corre una sola vez; la versión queda guardada en la tabla meta.
+const MIGRATIONS = [
+  // 1. Diámetros en 4 puntos (A–D) y prueba de impacto con casillas.
+  async (db) => {
+    await db.exec("UPDATE specs SET points = 'A,B,C,D' WHERE points = 'A,B,C,D,E,F,G,H'");
+    await db.exec('ALTER TABLE test_types ADD COLUMN checks INTEGER NOT NULL DEFAULT 0');
+    await db.exec('ALTER TABLE test_types ADD COLUMN min_ok INTEGER');
+    await db.exec('ALTER TABLE test_results ADD COLUMN detail TEXT');
+    await db.exec('ALTER TABLE test_results ADD COLUMN score INTEGER');
+    await db.exec("UPDATE test_types SET checks = 4, min_ok = 2, description = 'Se dan 4 impactos al envase y se marca en cada casilla si resistió. Pasa si resiste al menos 2.' WHERE code = 'IMPACTO'");
+  },
+];
+
+async function migrate(db) {
+  const row = await db.prepare("SELECT value FROM meta WHERE key = 'version'").get();
+  let version = row ? Number(row.value) : 0;
+  while (version < MIGRATIONS.length) {
+    await tx(db, async (db) => {
+      await MIGRATIONS[version](db);
+      version += 1;
+      await db.prepare("DELETE FROM meta WHERE key = 'version'").run();
+      await db.prepare("INSERT INTO meta (key, value) VALUES ('version', ?)").run(String(version));
+    });
+  }
 }
 
 async function seed(db) {
@@ -389,4 +423,4 @@ function tx(db, fn) {
   return db.transaction(fn);
 }
 
-module.exports = { open, tx, yearNow, cleanPgUrl, POINTS_8, DEFAULT_PASSWORD };
+module.exports = { open, tx, yearNow, cleanPgUrl, POINTS, DEFAULT_PASSWORD };

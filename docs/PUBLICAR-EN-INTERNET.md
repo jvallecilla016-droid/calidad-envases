@@ -33,7 +33,7 @@ La app crea las tablas, los 7 productos, las pruebas de impacto y filtración y 
 ## Lo que hay que saber del plan gratis
 
 - Si nadie usa la app durante 15 minutos, Render la duerme. El siguiente que entre espera cerca de un minuto mientras despierta; después funciona normal.
-- Neon gratis guarda 0,5 GB. Con mediciones de 8 puntos alcanza para varios años de lotes.
+- Neon gratis guarda 0,5 GB. Con mediciones de 4 puntos alcanza para varios años de lotes.
 - Si la planta empieza a depender de la app en todos los turnos, el plan Starter de Render (7 USD al mes) elimina la espera del arranque. No hay que cambiar nada del código.
 
 ## Probar en el computador sin internet
