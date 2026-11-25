@@ -152,6 +152,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   r = await insp.get(`/certificados/CL-${year}-0001.pdf`);
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.headers.get('content-type'), 'application/pdf');
+  assert.match(r.headers.get('cache-control'), /no-store/);
   const buf = Buffer.from(await r.arrayBuffer());
   assert.strictEqual(buf.subarray(0, 4).toString(), '%PDF');
   if (process.env.SAVE_PDF) require('node:fs').writeFileSync(process.env.SAVE_PDF, buf);

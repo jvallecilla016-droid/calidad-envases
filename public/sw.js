@@ -1,6 +1,6 @@
 // Service worker: permite instalar la app y muestra un aviso si no hay señal.
 // Los datos siempre se leen y guardan en el servidor central; no se guardan registros en el celular.
-const CACHE = 'calidad-v1';
+const CACHE = 'calidad-v2';
 const STATIC = ['/static/style.css', '/static/app.js', '/static/icons/icon-192.png', '/offline.html'];
 
 self.addEventListener('install', (e) => {

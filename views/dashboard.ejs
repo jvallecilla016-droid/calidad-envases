@@ -36,7 +36,7 @@
       <td><%= l.molde %></td>
       <td><%= l.production_date %></td>
       <td><span class="badge <%= l.status %>"><%= STATUS_NAMES[l.status] %></span></td>
-      <td><% if (l.certificate_number) { %><a href="/certificados/<%= l.certificate_number %>.pdf" target="_blank"><%= l.certificate_number %></a><% } else { %>—<% } %></td>
+      <td><% if (l.certificate_number) { %><a href="/certificados/<%= l.certificate_number %>.pdf?v=<%= v %>" target="_blank"><%= l.certificate_number %></a><% } else { %>—<% } %></td>
     </tr>
   <% } %>
   </tbody>

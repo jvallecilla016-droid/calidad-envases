@@ -6,7 +6,7 @@
     <p class="muted"><%= l.product_name %> · <%= l.product_code %> · <%= l.molde %></p>
   </div>
   <% if (l.certificate_number) { %>
-    <a class="btn primary" href="/certificados/<%= l.certificate_number %>.pdf" target="_blank">Certificado <%= l.certificate_number %> (PDF)</a>
+    <a class="btn primary" href="/certificados/<%= l.certificate_number %>.pdf?v=<%= v %>" target="_blank">Certificado <%= l.certificate_number %> (PDF)</a>
   <% } %>
 </div>
 
@@ -174,7 +174,7 @@
     <% } %>
   <% } else if (l.status === 'liberado') { %>
     <p>Lote liberado con el certificado <strong><%= l.certificate_number %></strong>.</p>
-    <a class="btn primary" href="/certificados/<%= l.certificate_number %>.pdf" target="_blank">Imprimir certificado</a>
+    <a class="btn primary" href="/certificados/<%= l.certificate_number %>.pdf?v=<%= v %>" target="_blank">Imprimir certificado</a>
   <% } else { %>
     <p>Lote rechazado. Motivo: <%= l.decision_notes %></p>
   <% } %>
