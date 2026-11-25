@@ -15,7 +15,7 @@
       <td><% if (c.reviewed_at) { %><span class="tag ok">✓ <%= c.reviewed_by_name %></span> <small class="muted"><%= c.reviewed_at %></small><% } else if (user.role === 'jefe') { %>
         <form method="post" action="/certificados/<%= c.number %>/visto-bueno" class="inline"><input type="hidden" name="back" value="<%= pending ? 'pendientes' : '' %>"><button class="btn small primary">Dar visto bueno</button></form>
         <% } else { %><span class="tag">Pendiente</span><% } %></td>
-      <td><a class="btn small" href="/certificados/<%= c.number %>.pdf" target="_blank">Imprimir</a></td>
+      <td><a class="btn small" href="/certificados/<%= c.number %>.pdf?v=<%= v %>" target="_blank">Imprimir</a></td>
     </tr>
   <% } %>
   </tbody>

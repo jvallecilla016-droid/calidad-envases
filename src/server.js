@@ -9,6 +9,8 @@ const { evaluateLot, releaseLot, specPoints } = require('./quality');
 const { certificatePdf } = require('./pdf');
 const indicadores = require('./indicadores');
 
+// Cambia en cada despliegue: se agrega a los enlaces del PDF para no usar copias guardadas.
+const APP_VERSION = process.env.RENDER_GIT_COMMIT ? process.env.RENDER_GIT_COMMIT.slice(0, 7) : String(Date.now());
 const ROLE_NAMES = { inspector: 'Aprendiz / Operario', analista: 'Auxiliar de calidad', jefe: 'Jefe de calidad' };
 const STATUS_NAMES = { en_proceso: 'En proceso', en_revision: 'En revisión', liberado: 'Liberado', rechazado: 'Rechazado' };
 
@@ -40,6 +42,7 @@ function createApp(db) {
     res.locals.ROLE_NAMES = ROLE_NAMES;
     res.locals.STATUS_NAMES = STATUS_NAMES;
     res.locals.flash = req.session.flash || null;
+    res.locals.v = APP_VERSION;
     delete req.session.flash;
     res.locals.company = process.env.COMPANY_NAME || 'Planta de Envases Plásticos';
     next();
@@ -372,6 +375,8 @@ function createApp(db) {
     const c = await db.prepare('SELECT * FROM certificates WHERE number = ?').get(req.params.number);
     if (!c) return res.status(404).render('error', { title: 'No encontrado', message: 'Certificado no encontrado.' });
     res.setHeader('Content-Type', 'application/pdf');
+    // El PDF se arma con el formato vigente cada vez: que el celular no muestre una copia vieja.
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     res.setHeader('Content-Disposition', `inline; filename="${c.number}.pdf"`);
     certificatePdf(JSON.parse(c.snapshot), res);
   });
