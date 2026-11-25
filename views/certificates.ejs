@@ -1,8 +1,10 @@
 <%- include('partials/header') %>
 <h1>Certificados de liberación</h1>
-<% if (!certs.length) { %><p class="muted">Aún no se ha liberado ningún lote.</p><% } else { %>
+<p class="muted">Cualquier perfil emite el certificado cuando el lote cumple todo, y lo imprime en el turno. El jefe de calidad revisa cada uno y deja su visto bueno.</p>
+<div class="tabs"><a href="/certificados" class="<%= pending ? '' : 'on' %>">Todos</a><a href="/certificados?pendientes=1" class="<%= pending ? 'on' : '' %>">Sin visto bueno</a></div>
+<% if (!certs.length) { %><p class="muted"><%= pending ? 'No hay certificados pendientes de visto bueno.' : 'Aún no se ha liberado ningún lote.' %></p><% } else { %>
 <table class="grid">
-  <thead><tr><th>Consecutivo</th><th>Lote</th><th>Producto</th><th>Molde</th><th>Emitido</th><th>Aprobó</th><th></th></tr></thead>
+  <thead><tr><th>Consecutivo</th><th>Lote</th><th>Producto</th><th>Molde</th><th>Emitido</th><th>Emitió</th><th>Visto bueno del jefe</th><th></th></tr></thead>
   <tbody>
   <% for (const c of certs) { %>
     <tr>
@@ -10,7 +12,10 @@
       <td><a href="/lotes/<%= c.lot_id %>"><%= c.lot_number %></a></td>
       <td><%= c.product_name %></td><td><%= c.molde %></td>
       <td><%= c.issued_at %></td><td><%= c.issued_by_name %></td>
-      <td><a class="btn small" href="/certificados/<%= c.number %>.pdf" target="_blank">PDF</a></td>
+      <td><% if (c.reviewed_at) { %><span class="tag ok">✓ <%= c.reviewed_by_name %></span> <small class="muted"><%= c.reviewed_at %></small><% } else if (user.role === 'jefe') { %>
+        <form method="post" action="/certificados/<%= c.number %>/visto-bueno" class="inline"><input type="hidden" name="back" value="<%= pending ? 'pendientes' : '' %>"><button class="btn small primary">Dar visto bueno</button></form>
+        <% } else { %><span class="tag">Pendiente</span><% } %></td>
+      <td><a class="btn small" href="/certificados/<%= c.number %>.pdf" target="_blank">Imprimir</a></td>
     </tr>
   <% } %>
   </tbody>

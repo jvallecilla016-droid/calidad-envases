@@ -414,6 +414,11 @@ const MIGRATIONS = [
     await db.exec('ALTER TABLE test_types ADD COLUMN units INTEGER NOT NULL DEFAULT 1');
     await db.exec("UPDATE test_types SET units = 5 WHERE code IN ('IMPACTO', 'FILTRACION')");
   },
+  // 6. Cualquier perfil emite el certificado; el jefe le da el visto bueno después.
+  async (db) => {
+    await db.exec('ALTER TABLE certificates ADD COLUMN reviewed_by INTEGER REFERENCES users(id)');
+    await db.exec('ALTER TABLE certificates ADD COLUMN reviewed_at TEXT');
+  },
 ];
 
 const TEAM_USERS = [

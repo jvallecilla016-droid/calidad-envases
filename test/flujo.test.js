@@ -117,33 +117,35 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
 
   for (const ty of types) await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: ty.id, observations: 'OK', ...aprobada(ty) });
 
-  // El inspector no puede enviar a aprobación
-  assert.strictEqual((await insp.post(`/lotes/${lotId}/enviar`)).status, 403);
-  await analista.post(`/lotes/${lotId}/enviar`);
-  assert.strictEqual((await evaluateLot(db, lotId)).lot.status, 'en_revision');
-  // El jefe no puede liberar un lote no conforme
-  await jefe.post(`/lotes/${lotId}/liberar`);
-  assert.strictEqual((await evaluateLot(db, lotId)).lot.status, 'en_revision');
+  // Un lote no conforme no emite certificado
+  await insp.post(`/lotes/${lotId}/liberar`);
+  assert.strictEqual((await evaluateLot(db, lotId)).lot.status, 'en_proceso');
 
-  // Se devuelve, se corrige la muestra 1, se reenvía y se libera
-  await analista.post(`/lotes/${lotId}/devolver`);
+  // Se corrige la muestra 1 y el aprendiz emite el certificado
   ev = await evaluateLot(db, lotId);
   await insp.post(`/lotes/${lotId}/muestras/${ev.samples[0].id}`, form());
-  await analista.post(`/lotes/${lotId}/enviar`);
-  assert.strictEqual((await analista.post(`/lotes/${lotId}/liberar`)).status, 403, 'solo el jefe libera');
-  await jefe.post(`/lotes/${lotId}/liberar`, { decision_notes: 'Liberado para despacho' });
+  await insp.post(`/lotes/${lotId}/liberar`, { decision_notes: 'Liberado para despacho' });
   ev = await evaluateLot(db, lotId);
   assert.strictEqual(ev.lot.status, 'liberado');
   const year = new Date().getFullYear();
   assert.strictEqual(ev.lot.certificate_number, `CL-${year}-0001`);
+  assert.ok((await (await insp.get(`/lotes/${lotId}`)).text()).includes('Imprimir certificado'));
+
+  // Le llega al jefe para su visto bueno; solo un jefe puede darlo
+  assert.ok((await (await jefe.get('/')).text()).includes('esperando tu visto bueno'));
+  assert.ok((await (await jefe.get('/certificados?pendientes=1')).text()).includes(`CL-${year}-0001`));
+  assert.strictEqual((await analista.post(`/certificados/CL-${year}-0001/visto-bueno`)).status, 403);
+  await jefe.post(`/certificados/CL-${year}-0001/visto-bueno`);
+  const cert = await db.prepare('SELECT reviewed_by, reviewed_at FROM certificates WHERE number = ?').get(`CL-${year}-0001`);
+  assert.ok(cert.reviewed_by && cert.reviewed_at);
+  assert.ok(!(await (await jefe.get('/')).text()).includes('esperando tu visto bueno'));
 
   // Un segundo lote liberado recibe el consecutivo siguiente
   r = await insp.post('/lotes', { lot_number: 'L-2611-046', product_id: prod.id, production_date: '2026-11-23' });
   const lot2 = Number(r.headers.get('location').split('/').pop());
   for (let i = 0; i < 5; i++) await insp.post(`/lotes/${lot2}/muestras`, form());
   for (const ty of types) await insp.post(`/lotes/${lot2}/pruebas`, { test_type_id: ty.id, ...aprobada(ty) });
-  await analista.post(`/lotes/${lot2}/enviar`);
-  await jefe.post(`/lotes/${lot2}/liberar`);
+  await analista.post(`/lotes/${lot2}/liberar`);
   assert.strictEqual((await evaluateLot(db, lot2)).lot.certificate_number, `CL-${year}-0002`);
 
   // PDF

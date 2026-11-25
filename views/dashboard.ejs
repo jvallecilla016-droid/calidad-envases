@@ -3,6 +3,7 @@
   <h1>Lotes de producción</h1>
   <a class="btn primary hide-m" href="/lotes/nuevo">+ Nuevo lote</a>
 </div>
+<% if (toReview) { %><a class="flash ok review-banner" href="/certificados?pendientes=1">Tienes <strong><%= toReview %></strong> certificado(s) emitidos esperando tu visto bueno ›</a><% } %>
 <div class="tabs">
   <a href="/" class="<%= !status ? 'on' : '' %>">Todos</a>
   <% for (const [k, v] of Object.entries(STATUS_NAMES)) { %>
