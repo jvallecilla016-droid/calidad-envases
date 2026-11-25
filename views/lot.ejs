@@ -29,7 +29,7 @@
     <p class="big"><%= ev.conforme ? 'CUMPLE' : (ev.complete ? 'NO CUMPLE' : 'INCOMPLETO') %></p>
     <ul class="checks">
       <li class="<%= ev.measurementsOk ? 'ok' : 'bad' %>">Especificaciones: <%= ev.samples.length %> muestra(s), <%= ev.measurementsOk ? 'todas dentro de límites' : (ev.measurementsComplete ? 'con lecturas fuera de límites' : 'faltan datos') %></li>
-      <li class="<%= ev.testsOk ? 'ok' : 'bad' %>">Pruebas: <%= ev.testsOk ? 'todas pasan' : (ev.testsComplete ? 'alguna no pasa' : 'pendientes') %></li>
+      <li class="<%= ev.testsOk ? 'ok' : 'bad' %>">Pruebas: <%= ev.testsOk ? 'todas aprobadas' : (ev.testsComplete ? 'alguna no aprobada' : 'pendientes') %></li>
     </ul>
     <% if (ev.problems.length) { %>
       <details <%= ev.problems.length < 6 ? 'open' : '' %>><summary><%= ev.problems.length %> observación(es)</summary>
@@ -98,9 +98,9 @@
     <% for (const t of ev.tests) { const r = t.result; %>
       <tr>
         <td><strong><%= t.type.name %></strong><% if (!t.type.active) { %> <small class="muted">(inactiva)</small><% } %></td>
-        <td><% if (!r) { %><span class="muted">Pendiente</span><% } else { const groups = r.detail ? r.detail.split(';') : []; const names = t.type.items ? t.type.items.split(',') : null; const many = groups.length > 1; %><span class="tag <%= r.result === 'pasa' ? 'ok' : 'bad' %>"><%= r.result === 'pasa' ? 'PASA' : 'NO PASA' %></span><% if (many && groups.length < (t.type.units || 1)) { %> <small class="bad-text">faltan <%= (t.type.units || 1) - groups.length %> envases</small><% } %>
+        <td><% if (!r) { %><span class="muted">Pendiente</span><% } else { const groups = r.detail ? r.detail.split(';') : []; const names = t.type.items ? t.type.items.split(',') : null; const many = groups.length > 1; %><span class="tag <%= r.result === 'pasa' ? 'ok' : 'bad' %>"><%= r.result === 'pasa' ? 'APROBADO' : 'NO APROBADO' %></span><% if (many && groups.length < (t.type.units || 1)) { %> <small class="bad-text">faltan <%= (t.type.units || 1) - groups.length %> envases</small><% } %>
           <% groups.forEach((g, ui) => { const d = g.split(','); if (!many && !t.type.checks) return; %>
-          <div class="impactos"><% if (many) { %><b>E<%= ui + 1 %></b><% } %><% d.forEach((v, i) => { %><span class="<%= v === '1' ? 'si' : 'no' %>"><% if (names) { %><%= names[i] || i + 1 %>: <%= v === '1' ? 'no' : 'sí' %><% } else if (t.type.checks) { %><%= i + 1 %>: <%= v === '1' ? '✓' : '✗' %><% } else { %><%= v === '1' ? '✓ Pasa' : '✗ No pasa' %><% } %></span><% }) %></div>
+          <div class="impactos"><% if (many) { %><b>E<%= ui + 1 %></b><% } %><% d.forEach((v, i) => { %><span class="<%= v === '1' ? 'si' : 'no' %>"><% if (names) { %><%= names[i] || i + 1 %>: <%= v === '1' ? 'no' : 'sí' %><% } else if (t.type.checks) { %><%= i + 1 %>: <%= v === '1' ? '✓' : '✗' %><% } else { %><%= v === '1' ? '✓ Aprobado' : '✗ No aprobado' %><% } %></span><% }) %></div>
           <% }) %><% } %></td>
         <td><%= r ? (r.observations || '') : '' %></td>
         <td><%= r ? r.performed_by_name + ' · ' + r.performed_at : '' %></td>
@@ -113,7 +113,7 @@
             <% if (t.type.checks > 0) { %>
             <% for (let u = 1; u <= units; u++) { const prev = prevG[u - 1] ? prevG[u - 1].split(',') : []; %>
             <fieldset class="checklist" data-min="<%= t.type.min_ok || t.type.checks %>" data-kind="<%= names ? 'defectos' : 'impactos' %>">
-              <legend><%= units > 1 ? `Envase ${u} de ${units}. ` : '' %><%= names ? '¿El producto tiene este defecto? Pasa solo si no tiene ninguno' : `¿Resistió cada impacto? Pasa con ${t.type.min_ok || t.type.checks} de ${t.type.checks}` %></legend>
+              <legend><%= units > 1 ? `Envase ${u} de ${units}. ` : '' %><%= names ? '¿El producto tiene este defecto? Se aprueba solo si no tiene ninguno' : `¿Resistió cada impacto? Se aprueba con ${t.type.min_ok || t.type.checks} de ${t.type.checks}` %></legend>
               <% for (let i = 1; i <= t.type.checks; i++) { const label = names ? (names[i - 1] || `Defecto ${i}`) : `Impacto ${i}`; %>
               <div class="chk-row">
                 <span class="chk-n"><%= label %></span>
@@ -133,8 +133,8 @@
               <div class="chk-row">
                 <% if (units > 1) { %><span class="chk-n">Envase <%= u %></span><% } %>
                 <div class="seg2" role="radiogroup" aria-label="Resultado de <%= t.type.name %><%= units > 1 ? `, envase ${u}` : '' %>">
-                  <label class="opt ok"><input type="radio" name="res_<%= u %>" value="pasa" required <%= prev === '1' ? 'checked' : '' %>><span>Pasa</span></label>
-                  <label class="opt bad"><input type="radio" name="res_<%= u %>" value="no_pasa" <%= prev === '0' ? 'checked' : '' %>><span>No pasa</span></label>
+                  <label class="opt ok"><input type="radio" name="res_<%= u %>" value="pasa" required <%= prev === '1' ? 'checked' : '' %>><span>Aprobado</span></label>
+                  <label class="opt bad"><input type="radio" name="res_<%= u %>" value="no_pasa" <%= prev === '0' ? 'checked' : '' %>><span>No aprobado</span></label>
                 </div>
               </div>
               <% } %>

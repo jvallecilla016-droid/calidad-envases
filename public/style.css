@@ -97,7 +97,7 @@ fieldset.spec.has-out { border-color: var(--bad); box-shadow: 0 0 0 1px var(--ba
 .savebar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); z-index: 5; }
 .live { font-size: .88rem; color: var(--muted); font-variant-numeric: tabular-nums; } .live.bad { color: var(--bad); font-weight: 700; }
 
-/* Pruebas: botones Pasa / No pasa */
+/* Pruebas: botones Aprobado / No aprobado */
 .seg2 { display: inline-flex; border: 1px solid #b9c2cc; border-radius: 8px; overflow: hidden; }
 .seg2 .opt { margin: 0; display: block; cursor: pointer; } .seg2 input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .seg2 span { display: block; padding: 8px 14px; font-weight: 600; font-size: .9rem; background: #fff; }

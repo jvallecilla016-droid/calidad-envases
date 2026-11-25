@@ -99,8 +99,8 @@ document.querySelectorAll('fieldset.checklist').forEach((fs) => {
       const pasa = si >= min;
       const bad = rows.length - si;
       out.textContent = fs.dataset.kind === 'defectos'
-        ? `${bad ? `${bad} defecto${bad > 1 ? 's' : ''} encontrado${bad > 1 ? 's' : ''}` : 'Sin defectos'}: ${pasa ? 'PASA' : 'NO PASA'}`
-        : `${si} de ${rows.length} resistidos: ${pasa ? 'PASA' : 'NO PASA'}`;
+        ? `${bad ? `${bad} defecto${bad > 1 ? 's' : ''} encontrado${bad > 1 ? 's' : ''}` : 'Sin defectos'}: ${pasa ? 'APROBADO' : 'NO APROBADO'}`
+        : `${si} de ${rows.length} resistidos: ${pasa ? 'APROBADO' : 'NO APROBADO'}`;
       out.className = `chk-total ${pasa ? 'ok' : 'bad'}`;
     }
   };
