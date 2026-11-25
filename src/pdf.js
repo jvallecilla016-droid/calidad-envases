@@ -1,4 +1,5 @@
 'use strict';
+const { resisted } = require('./quality');
 const PDFDocument = require('pdfkit');
 
 const COMPANY = () => process.env.COMPANY_NAME || 'Planta de Envases Plásticos';
@@ -142,7 +143,7 @@ function certificatePdf(snap, stream) {
       const names = t.items ? t.items.split(',') : null;
       const n = t.checks || 0;
       const rule = names ? 'Se aprueba si no tiene ningún defecto'
-        : n ? `Cada envase se aprueba con ${t.min_ok || n} de ${n} impactos resistidos` : 'Resultado por envase';
+        : n ? `Cada envase se aprueba si resiste mínimo ${t.min_ok || n} caídas` : 'Resultado por envase';
       doc.font('Helvetica-Bold').fontSize(9).text(`${t.name}  ·  ${rule}  ·  ${t.performed_by || ''}  ·  ${t.performed_at || ''}`, L, y, { width: W });
       y = doc.y + 4;
       const first = 60;
@@ -154,11 +155,12 @@ function certificatePdf(snap, stream) {
         const cols = [['Envase', first], ...[...Array(n)].map((_, i) => [`Impacto ${i + 1}`, mid]), ['Resistió', tot], ['Resultado', last]];
         y = tableHeader(doc, cols, L, y);
         groups.forEach((g, ui) => {
-          const si = g.filter((v) => v === '1').length;
+          const si = resisted(g);
           const ok = si >= (t.min_ok || n);
           y = tableRow(doc, cols, [String(ui + 1), ...g.map(() => ''), `${si} de ${n}`, ok ? 'APROBADO' : 'NO APROBADO'], L, y, { last: ok ? '#1d7a35' : '#b3261e' });
           const rowTop = y - 13;
-          g.forEach((v, i) => checkbox(doc, L + first + i * mid + mid / 2 - 5, rowTop + 1.5, v === '1'));
+          // Después de la primera caída que falla, las siguientes quedan como falladas (X).
+          g.forEach((v, i) => checkbox(doc, L + first + i * mid + mid / 2 - 5, rowTop + 1.5, i < si));
         });
       } else {
         const mid = n ? (W - first - last) / n : 0;

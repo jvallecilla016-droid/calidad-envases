@@ -89,9 +89,22 @@ document.querySelectorAll('fieldset.checklist').forEach((fs) => {
   const min = Number(fs.dataset.min);
   const out = fs.querySelector('.chk-total');
   const rows = fs.querySelectorAll('.chk-row');
+  const impact = fs.dataset.kind !== 'defectos';
+  // Impacto: si el envase falla en una caída, las siguientes quedan marcadas como falladas.
+  if (impact) {
+    fs.addEventListener('change', (e) => {
+      if (e.target.value !== 'no') return;
+      const idx = [...rows].findIndex((r) => r.contains(e.target));
+      [...rows].slice(idx + 1).forEach((r) => { const no = r.querySelector('input[value=no]'); if (no) no.checked = true; });
+    });
+  }
   const update = () => {
     const marked = fs.querySelectorAll('input:checked');
-    const si = fs.querySelectorAll('input[value=si]:checked').length;
+    let si = fs.querySelectorAll('input[value=si]:checked').length;
+    if (impact) {
+      si = 0;
+      for (const r of rows) { if (r.querySelector('input[value=si]:checked')) si++; else break; }
+    }
     if (marked.length < rows.length) {
       out.textContent = `Faltan ${rows.length - marked.length} casillas por marcar`;
       out.className = 'chk-total muted';
@@ -100,7 +113,7 @@ document.querySelectorAll('fieldset.checklist').forEach((fs) => {
       const bad = rows.length - si;
       out.textContent = fs.dataset.kind === 'defectos'
         ? `${bad ? `${bad} defecto${bad > 1 ? 's' : ''} encontrado${bad > 1 ? 's' : ''}` : 'Sin defectos'}: ${pasa ? 'APROBADO' : 'NO APROBADO'}`
-        : `${si} de ${rows.length} resistidos: ${pasa ? 'APROBADO' : 'NO APROBADO'}`;
+        : `Resistió ${si} de ${rows.length} caídas: ${pasa ? 'APROBADO' : 'NO APROBADO'}`;
       out.className = `chk-total ${pasa ? 'ok' : 'bad'}`;
     }
   };

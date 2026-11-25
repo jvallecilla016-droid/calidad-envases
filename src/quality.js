@@ -30,6 +30,13 @@ function unitsDone(r) {
   return r && r.detail ? r.detail.split(';').length : r ? 1 : 0;
 }
 
+// Caídas resistidas por un envase en la prueba de impacto: se cuentan en orden hasta la
+// primera que falla. Si el envase falla en la caída 2, las caídas 3 y 4 ya no cuentan.
+function resisted(g) {
+  const i = g.indexOf('0');
+  return i === -1 ? g.length : i;
+}
+
 // Evalúa el lote completo: mediciones de todas las muestras + pruebas de liberación.
 async function evaluateLot(db, lotId) {
   const lot = await getLot(db, lotId);
@@ -166,4 +173,4 @@ function releaseLot(db, lotId, user, notes) {
   });
 }
 
-module.exports = { unitsDone, evaluateLot, releaseLot, specPoints, inLimits, getLot, nextCertificateNumber };
+module.exports = { resisted, unitsDone, evaluateLot, releaseLot, specPoints, inLimits, getLot, nextCertificateNumber };
