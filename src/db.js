@@ -186,7 +186,7 @@ const SEED_PRODUCTS = [
   },
 ];
 
-const VISUAL_ITEMS = ['Rotos', 'Manchados', 'Producto incompleto'];
+const VISUAL_ITEMS = ['Rotos', 'Manchas', 'Producto incompleto'];
 
 const SEED_TESTS = [
   ['IMPACTO', 'Prueba de impacto', 'Resistencia del envase lleno a la caída o golpe. Registrar altura y condición de la prueba en observaciones.'],
@@ -422,6 +422,11 @@ const MIGRATIONS = [
   // 7. Resultados como «Aprobado / No aprobado» también en las descripciones guardadas.
   async (db) => {
     await db.exec("UPDATE test_types SET description = REPLACE(REPLACE(description, 'Pasa solo si', 'Se aprueba solo si'), 'Pasa si', 'Se aprueba si')");
+  },
+  // 8. Inspección visual: «Manchados» pasa a llamarse «Manchas» (también en certificados ya emitidos).
+  async (db) => {
+    await db.exec("UPDATE test_types SET items = REPLACE(items, 'Manchados', 'Manchas') WHERE items IS NOT NULL");
+    await db.exec("UPDATE certificates SET snapshot = REPLACE(snapshot, 'Manchados', 'Manchas')");
   },
 ];
 

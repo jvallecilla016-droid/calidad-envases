@@ -108,12 +108,12 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
 
   // Inspección visual: rotos, manchados, producto incompleto; un solo defecto la reprueba
   const visual = types.find((t) => t.code === 'VISUAL');
-  assert.deepStrictEqual([visual.items, visual.checks, visual.min_ok], ['Rotos,Manchados,Producto incompleto', 3, 3]);
+  assert.deepStrictEqual([visual.items, visual.checks, visual.min_ok], ['Rotos,Manchas,Producto incompleto', 3, 3]);
   assert.ok((await (await insp.get(`/lotes/${lotId}`)).text()).includes('Producto incompleto'));
   await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: visual.id, chk_1_1: 'si', chk_1_2: 'no', chk_1_3: 'si' });
   tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, visual.id);
   assert.deepStrictEqual([tr.result, tr.detail], ['no_pasa', '1,0,1']);
-  assert.ok((await db.prepare("SELECT detail FROM audit_log WHERE action = 'registrar_prueba' ORDER BY id DESC").get()).detail.includes('defectos: Manchados'));
+  assert.ok((await db.prepare("SELECT detail FROM audit_log WHERE action = 'registrar_prueba' ORDER BY id DESC").get()).detail.includes('defectos: Manchas'));
 
   for (const ty of types) await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: ty.id, observations: 'OK', ...aprobada(ty) });
 
