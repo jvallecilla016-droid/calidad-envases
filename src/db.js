@@ -408,6 +408,12 @@ const MIGRATIONS = [
     await db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
     await db.exec("UPDATE users SET is_admin = 1 WHERE username = 'lgomez'");
   },
+  // 5. Mínimos por lote: 5 muestras por producto y 5 envases en impacto y filtración.
+  async (db) => {
+    await db.exec('ALTER TABLE products ADD COLUMN min_samples INTEGER NOT NULL DEFAULT 5');
+    await db.exec('ALTER TABLE test_types ADD COLUMN units INTEGER NOT NULL DEFAULT 1');
+    await db.exec("UPDATE test_types SET units = 5 WHERE code IN ('IMPACTO', 'FILTRACION')");
+  },
 ];
 
 const TEAM_USERS = [

@@ -13,6 +13,7 @@
         <% for (const m of ['Colada fría', 'Colada caliente']) { %><option <%= product.molde === m ? 'selected' : '' %>><%= m %></option><% } %>
       </select>
     </label>
+    <label>Muestras mínimas por lote * <input type="number" name="min_samples" min="1" max="50" value="<%= product.min_samples || 5 %>" required inputmode="numeric" <%= dis %>></label>
     <label>Uso <input name="uso" value="<%= product.uso || '' %>" placeholder="Pintura / Alimentos" <%= dis %>></label>
     <% if (product.id) { %><label class="radio"><input type="checkbox" name="active" value="1" <%= product.active ? 'checked' : '' %> <%= dis %>> Activo</label><% } %>
   </div>

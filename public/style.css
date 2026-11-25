@@ -156,3 +156,5 @@ body.offline::before { content: "Sin señal · lo que guardes no llegará hasta 
 .danger-zone summary { color: var(--bad); cursor: pointer; font-weight: 600; }
 .user-actions { white-space: nowrap; }
 .user-actions form { display: inline-block; margin: 2px; }
+.bad-text { color: var(--bad); font-weight: 600; }
+fieldset.units { border: 0; padding: 0; margin: 0 0 6px; }

@@ -2,7 +2,7 @@
 <h1>Pruebas de liberación</h1>
 <p class="muted">Toda prueba activa es obligatoria: un lote solo se libera si todas tienen resultado «Pasa». Una prueba con casillas (como la de impacto) exige marcar todas las casillas y pasa cuando las resistidas llegan al mínimo. Una inspección con lista de defectos pasa solo si el producto no tiene ninguno.</p>
 <table class="grid">
-  <thead><tr><th>Código</th><th>Prueba</th><th>Descripción</th><th>Cómo se registra</th><th>Estado</th><% if (user.role !== 'inspector') { %><th></th><% } %></tr></thead>
+  <thead><tr><th>Código</th><th>Prueba</th><th>Descripción</th><th>Cómo se registra</th><th>Envases por lote</th><th>Estado</th><% if (user.role !== 'inspector') { %><th></th><% } %></tr></thead>
   <tbody>
   <% for (const t of types) { %>
     <tr class="<%= t.active ? '' : 'inactive' %>">
@@ -27,6 +27,14 @@
         <% } %>
         <% } %>
       </td>
+      <td><strong><%= t.units || 1 %></strong>
+        <% if (user.role !== 'inspector') { %>
+        <form method="post" action="/pruebas/<%= t.id %>/envases" class="inline casillas-form">
+          <label>Envases <input type="number" name="units" min="1" max="20" value="<%= t.units || 1 %>" inputmode="numeric"></label>
+          <button class="btn small">Cambiar</button>
+        </form>
+        <% } %>
+      </td>
       <td><%= t.active ? 'Activa' : 'Inactiva' %></td>
       <% if (user.role !== 'inspector') { %>
       <td><form method="post" action="/pruebas/<%= t.id %>/estado" class="inline"><button class="btn small"><%= t.active ? 'Desactivar' : 'Activar' %></button></form></td>
@@ -44,6 +52,7 @@
     <label>Casillas (0 = solo pasa / no pasa) <input type="number" name="checks" min="0" max="10" value="0" inputmode="numeric"></label>
     <label>Mínimo de casillas para pasar <input type="number" name="min_ok" min="1" max="10" inputmode="numeric"></label>
   </div>
+  <label>Envases por lote <input type="number" name="units" min="1" max="20" value="1" inputmode="numeric"></label>
   <label>O lista de defectos a revisar (separados por coma; pasa solo si no hay ninguno) <input name="items" placeholder="Ej. Rebaba, Deformado, Color fuera de tono"></label>
   <button class="btn primary">Agregar</button>
 </form>
