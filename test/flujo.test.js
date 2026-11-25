@@ -257,3 +257,21 @@ test('solo Luis (administrador) elimina lotes y usuarios', async (t) => {
   await jefe.post(`/usuarios/${jefeId}/eliminar`);
   assert.ok(await db.prepare('SELECT 1 FROM users WHERE id = ?').get(jefeId));
 });
+
+test('certificados antiguos sin mínimo de impacto se evalúan con 2 caídas', async () => {
+  const { open } = require('../src/db');
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cal-')), 'c.db');
+  let db = await open(file);
+  const lot = (await db.prepare("INSERT INTO lots (lot_number, product_id, production_date) VALUES ('V1', 1, '2026-11-24')").run()).lastInsertRowid;
+  const snap = { tests: [{ name: 'Prueba de impacto', checks: 4, detail: '1,1,1,0;1,1,1,1' }] };
+  await db.prepare("INSERT INTO certificates (number, year, seq, lot_id, snapshot) VALUES ('CL-2026-0009', 2026, 9, ?, ?)").run(lot, JSON.stringify(snap));
+  await db.prepare("UPDATE meta SET value = '8' WHERE key = 'version'").run();
+  await db.close();
+  db = await open(file);
+  const s = JSON.parse((await db.prepare("SELECT snapshot FROM certificates WHERE number = 'CL-2026-0009'").get()).snapshot);
+  assert.strictEqual(s.tests[0].min_ok, 2);
+  await db.close();
+});

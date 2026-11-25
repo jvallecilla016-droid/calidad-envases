@@ -428,6 +428,22 @@ const MIGRATIONS = [
     await db.exec("UPDATE test_types SET items = REPLACE(items, 'Manchados', 'Manchas') WHERE items IS NOT NULL");
     await db.exec("UPDATE certificates SET snapshot = REPLACE(snapshot, 'Manchados', 'Manchas')");
   },
+  // 9. Certificados emitidos antes de guardar el mínimo de la prueba de impacto: se completa con
+  // el mínimo configurado (2 caídas) para que cada envase se evalúe con la regla correcta.
+  async (db) => {
+    const types = await db.prepare('SELECT name, min_ok FROM test_types WHERE checks > 0 AND items IS NULL').all();
+    for (const c of await db.prepare('SELECT id, snapshot FROM certificates').all()) {
+      const snap = JSON.parse(c.snapshot);
+      let changed = false;
+      for (const t of snap.tests || []) {
+        if (t.checks && !t.items && !t.min_ok) {
+          t.min_ok = (types.find((x) => x.name === t.name) || {}).min_ok || 2;
+          changed = true;
+        }
+      }
+      if (changed) await db.prepare('UPDATE certificates SET snapshot = ? WHERE id = ?').run(JSON.stringify(snap), c.id);
+    }
+  },
 ];
 
 const TEAM_USERS = [
