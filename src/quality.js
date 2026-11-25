@@ -12,7 +12,7 @@ function inLimits(value, lic, lsc) {
 
 async function getLot(db, lotId) {
   return db.prepare(`
-    SELECT l.*, p.code AS product_code, p.name AS product_name, p.molde, p.referencia, p.capacidad,
+    SELECT l.*, p.code AS product_code, p.name AS product_name, p.molde, p.referencia, p.capacidad, p.min_samples,
       uc.full_name AS created_by_name, us.full_name AS submitted_by_name, ud.full_name AS decided_by_name,
       c.number AS certificate_number
     FROM lots l
@@ -22,6 +22,12 @@ async function getLot(db, lotId) {
     LEFT JOIN users ud ON ud.id = l.decided_by
     LEFT JOIN certificates c ON c.lot_id = l.id
     WHERE l.id = ?`).get(lotId);
+}
+
+// Una prueba se registra por envase. detail guarda un grupo por envase separado por ';'
+// (casillas '1,0,1,0' o resultado '1'/'0'). Resultados antiguos sin detalle cuentan como 1 envase.
+function unitsDone(r) {
+  return r && r.detail ? r.detail.split(';').length : r ? 1 : 0;
 }
 
 // Evalúa el lote completo: mediciones de todas las muestras + pruebas de liberación.
@@ -88,17 +94,21 @@ async function evaluateLot(db, lotId) {
     }
   }
 
-  if (samples.length === 0) problems.push('No hay muestras registradas');
+  const minSamples = lot.min_samples || 1;
+  if (samples.length === 0) problems.push(`No hay muestras registradas (mínimo ${minSamples} por lote)`);
+  else if (samples.length < minSamples) problems.push(`Faltan ${minSamples - samples.length} muestra(s): el mínimo es ${minSamples} por lote`);
   if (specs.length === 0) problems.push('El producto no tiene especificaciones cargadas');
   for (const t of tests) {
     if (!t.type.active) continue;
-    if (!t.result) problems.push(`Falta la ${t.type.name.toLowerCase()}`);
+    const units = t.type.units || 1;
+    if (!t.result) problems.push(`Falta la ${t.type.name.toLowerCase()}${units > 1 ? ` (${units} envases)` : ''}`);
+    else if (unitsDone(t.result) < units) problems.push(`${t.type.name}: faltan ${units - unitsDone(t.result)} envase(s) de ${units}`);
     else if (t.result.result !== 'pasa') problems.push(`${t.type.name}: NO PASA`);
   }
 
-  const measurementsComplete = samples.length > 0 && samples.every((s) => s.complete) && specs.length > 0;
+  const measurementsComplete = samples.length >= minSamples && samples.every((s) => s.complete) && specs.length > 0;
   const measurementsOk = measurementsComplete && samples.every((s) => s.ok);
-  const testsComplete = tests.filter((t) => t.type.active).every((t) => t.result);
+  const testsComplete = tests.filter((t) => t.type.active).every((t) => t.result && unitsDone(t.result) >= (t.type.units || 1));
   const testsOk = testsComplete && tests.filter((t) => t.type.active).every((t) => t.result.result === 'pasa');
 
   return {
@@ -144,7 +154,7 @@ function releaseLot(db, lotId, user, notes) {
       specs: ev.specs.map((s) => ({ id: s.id, characteristic: s.characteristic, unit: s.unit, points: s.points })),
       tests: ev.tests.filter((t) => t.result).map((t) => ({
         name: t.type.name, result: t.result.result, observations: t.result.observations,
-        checks: t.result.test_checks || 0, score: t.result.score, detail: t.result.detail, items: t.result.test_items || null,
+        checks: t.result.test_checks || 0, units: unitsDone(t.result), score: t.result.score, detail: t.result.detail, items: t.result.test_items || null,
         performed_by: t.result.performed_by_name, performed_at: t.result.performed_at,
       })),
     };
@@ -156,4 +166,4 @@ function releaseLot(db, lotId, user, notes) {
   });
 }
 
-module.exports = { evaluateLot, releaseLot, specPoints, inLimits, getLot, nextCertificateNumber };
+module.exports = { unitsDone, evaluateLot, releaseLot, specPoints, inLimits, getLot, nextCertificateNumber };

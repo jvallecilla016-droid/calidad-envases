@@ -61,33 +61,56 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   assert.strictEqual(ev.samples.length, 2);
   assert.strictEqual(ev.measurementsOk, false);
   assert.ok(ev.problems.some((p) => p.includes('punto C')));
+  // Mínimo 5 muestras por lote
+  assert.ok(ev.problems.some((p) => p.includes('Faltan 3 muestra(s)')));
+  for (let i = 0; i < 3; i++) await insp.post(`/lotes/${lotId}/muestras`, form());
+  ev = await evaluateLot(db, lotId);
+  assert.strictEqual(ev.samples.length, 5);
+  assert.ok(!ev.problems.some((p) => p.includes('Faltan')));
 
   // Pruebas
   const types = await db.prepare('SELECT * FROM test_types').all();
   // Datos de una prueba aprobada: casillas para impacto, resultado simple para las demás.
-  const aprobada = (ty) => (ty.checks ? Object.fromEntries([...Array(ty.checks)].map((_, i) => [`chk_${i + 1}`, 'si'])) : { result: 'pasa' });
+  const aprobada = (ty) => {
+    const f = {};
+    for (let u = 1; u <= (ty.units || 1); u++) {
+      if (ty.checks) for (let i = 1; i <= ty.checks; i++) f[`chk_${u}_${i}`] = 'si';
+      else f[`res_${u}`] = 'pasa';
+    }
+    return f;
+  };
+  // Envase u con las casillas dadas ('1' resistió, '0' falló)
+  const envases = (lista) => Object.fromEntries(lista.flatMap((g, u) => [...g].map((v, i) => [`chk_${u + 1}_${i + 1}`, v === '1' ? 'si' : 'no'])));
   const impacto = types.find((t) => t.code === 'IMPACTO');
   assert.deepStrictEqual([impacto.checks, impacto.min_ok], [4, 2], 'impacto: 4 casillas, pasa con 2');
   assert.strictEqual(specs.filter((s) => s.points).every((s) => s.points === 'A,B,C,D'), true, 'diámetros en 4 puntos');
 
-  // Impacto: sin marcar las 4 casillas no se guarda
-  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, chk_1: 'si', chk_2: 'si', chk_3: 'si' });
+  assert.deepStrictEqual(types.filter((t) => ['IMPACTO', 'FILTRACION'].includes(t.code)).map((t) => t.units), [5, 5], '5 envases en impacto y filtración');
+  const filtracion = types.find((t) => t.code === 'FILTRACION');
+
+  // Impacto: si falta un envase no se guarda
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1111', '1111', '1111']) });
   assert.strictEqual(await db.prepare('SELECT 1 FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id), undefined);
-  // 1 de 4 resistidos: no pasa
-  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, chk_1: 'si', chk_2: 'no', chk_3: 'no', chk_4: 'no' });
+  // Un envase con 1 de 4 resistidos: no pasa
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1100', '1000', '1111', '1010']) });
   let tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
-  assert.deepStrictEqual([tr.result, tr.score, tr.detail], ['no_pasa', 1, '1,0,0,0']);
-  // 2 de 4 resistidos: pasa
-  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, chk_1: 'si', chk_2: 'no', chk_3: 'si', chk_4: 'no' });
+  assert.deepStrictEqual([tr.result, tr.score, tr.detail], ['no_pasa', 4, '1,1,1,1;1,1,0,0;1,0,0,0;1,1,1,1;1,0,1,0']);
+  // Los 5 envases con 2 o más resistidos: pasa
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1100', '1010', '1111', '0011']) });
   tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
-  assert.deepStrictEqual([tr.result, tr.score, tr.detail], ['pasa', 2, '1,0,1,0']);
+  assert.deepStrictEqual([tr.result, tr.score], ['pasa', 5]);
+  // Filtración: 5 envases; uno que no pasa reprueba
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: filtracion.id, res_1: 'pasa', res_2: 'pasa', res_3: 'no_pasa', res_4: 'pasa', res_5: 'pasa' });
+  tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, filtracion.id);
+  assert.deepStrictEqual([tr.result, tr.detail], ['no_pasa', '1;1;0;1;1']);
+  assert.ok((await (await insp.get(`/lotes/${lotId}`)).text()).includes('Envase 5'));
   assert.ok((await (await insp.get(`/lotes/${lotId}`)).text()).includes('Impacto 4'));
 
   // Inspección visual: rotos, manchados, producto incompleto; un solo defecto la reprueba
   const visual = types.find((t) => t.code === 'VISUAL');
   assert.deepStrictEqual([visual.items, visual.checks, visual.min_ok], ['Rotos,Manchados,Producto incompleto', 3, 3]);
   assert.ok((await (await insp.get(`/lotes/${lotId}`)).text()).includes('Producto incompleto'));
-  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: visual.id, chk_1: 'si', chk_2: 'no', chk_3: 'si' });
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: visual.id, chk_1_1: 'si', chk_1_2: 'no', chk_1_3: 'si' });
   tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, visual.id);
   assert.deepStrictEqual([tr.result, tr.detail], ['no_pasa', '1,0,1']);
   assert.ok((await db.prepare("SELECT detail FROM audit_log WHERE action = 'registrar_prueba' ORDER BY id DESC").get()).detail.includes('defectos: Manchados'));
@@ -117,7 +140,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   // Un segundo lote liberado recibe el consecutivo siguiente
   r = await insp.post('/lotes', { lot_number: 'L-2611-046', product_id: prod.id, production_date: '2026-11-23' });
   const lot2 = Number(r.headers.get('location').split('/').pop());
-  await insp.post(`/lotes/${lot2}/muestras`, form());
+  for (let i = 0; i < 5; i++) await insp.post(`/lotes/${lot2}/muestras`, form());
   for (const ty of types) await insp.post(`/lotes/${lot2}/pruebas`, { test_type_id: ty.id, ...aprobada(ty) });
   await analista.post(`/lotes/${lot2}/enviar`);
   await jefe.post(`/lotes/${lot2}/liberar`);

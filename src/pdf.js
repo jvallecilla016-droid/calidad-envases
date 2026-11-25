@@ -67,11 +67,17 @@ function certificatePdf(snap, stream) {
   y = tableHeader(doc, tcols, L, y);
   for (const t of snap.tests) {
     let obs = t.observations || '';
-    let extra = t.score != null && t.checks ? ` (${t.score}/${t.checks})` : '';
+    const groups = t.detail ? t.detail.split(';') : [];
+    let extra = '';
+    if (groups.length > 1) extra = ` (${t.score}/${groups.length})`;
+    else if (t.score != null && t.checks) extra = ` (${t.score}/${t.checks})`;
     if (t.items && t.detail) {
-      const found = t.items.split(',').filter((_, i) => t.detail.split(',')[i] === '0');
+      const names = t.items.split(',');
+      const found = [...new Set(groups.flatMap((g) => names.filter((_, i) => g.split(',')[i] === '0')))];
       extra = '';
       obs = (found.length ? `Defectos: ${found.join(', ')}` : 'Sin defectos') + (obs ? `. ${obs}` : '');
+    } else if (groups.length > 1) {
+      obs = `${groups.length} envases probados` + (obs ? `. ${obs}` : '');
     }
     y = tableRow(doc, tcols, [t.name, (t.result === 'pasa' ? 'PASA' : 'NO PASA') + extra, t.performed_by || '—', t.performed_at, obs], L, y,
       { color1: t.result === 'pasa' ? '#1d7a35' : '#b3261e' });
