@@ -9,7 +9,7 @@ Aplicación web para registrar las mediciones de calidad de cada lote de producc
 - **Muestras**: cada casilla se pone verde o roja al digitarla. Una sola lectura fuera de LIC–LSC deja el lote como NO CUMPLE.
 - **Mínimos por lote**: 5 muestras (peso y diámetros) por lote, editable en cada producto; impacto y filtración a 5 envases cada una, editable en *Pruebas*.
 - **Pruebas de liberación**: impacto (4 casillas por envase, cada envase pasa con 2 resistidos), filtración (Pasa / No pasa) e inspección visual (rotos, manchados, producto incompleto: pasa solo sin defectos). La lista de defectos se edita en *Pruebas*. Desde el menú *Pruebas* se pueden agregar más; toda prueba activa se vuelve obligatoria.
-- **Flujo de aprobación**: En proceso → En revisión → Liberado o Rechazado.
+- **Emisión del certificado**: cualquier perfil emite el certificado (consecutivo CL-AAAA-NNNN) cuando el lote cumple todo y lo imprime en el turno. El jefe de calidad lo ve en *Certificados → Sin visto bueno* y registra su visto bueno. El jefe también puede rechazar lotes.
 - **Certificado PDF** con consecutivo único por año (`CL-2026-0001`, `CL-2026-0002`…), con el resumen de especificaciones, las pruebas, las firmas y un anexo con todas las lecturas por punto. El certificado guarda una foto de los datos al momento de liberar, así que no cambia si después se editan las especificaciones.
 - **Indicadores** (menú *Indicadores*): lotes liberados y rechazados, porcentaje de cumplimiento, lotes por semana, cumplimiento por producto, lecturas fuera de LIC–LSC por punto A–D y por característica, resultados de impacto y filtración, y el detalle de cada lectura fuera de especificación. Se calcula en vivo con los lotes de la base de datos y se filtra por producto, tipo de molde y rango de fechas de producción. El botón *Descargar lotes (CSV)* exporta los lotes filtrados para abrirlos en Excel.
 - **Registro de auditoría** de cada acción (tabla `audit_log`).
@@ -19,7 +19,7 @@ Aplicación web para registrar las mediciones de calidad de cada lote de producc
 | Perfil | Puede |
 |---|---|
 | Aprendiz / Operario | Crear lotes, registrar muestras y resultados de pruebas |
-| Auxiliar de calidad | Lo anterior + editar productos y especificaciones, crear pruebas, eliminar muestras, enviar lotes a aprobación |
+| Auxiliar de calidad | Lo anterior + editar productos y especificaciones, crear pruebas, eliminar muestras |
 | Jefe de calidad | Lo anterior + aprobar (emite el certificado) o rechazar lotes |
 
 Solo el administrador (`lgomez`, Luis Eduardo Gómez) crea, modifica y elimina usuarios y elimina lotes (columna `users.is_admin`).

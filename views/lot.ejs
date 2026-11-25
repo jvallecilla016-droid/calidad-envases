@@ -154,43 +154,27 @@
 
 <section>
   <h2>3. Liberación</h2>
-  <% if (l.status === 'en_proceso') { %>
-    <% if (role === 'inspector') { %>
-      <p class="muted">Cuando termines las muestras y las pruebas, el auxiliar de calidad revisa el lote y lo envía a aprobación.</p>
-    <% } else { %>
-      <form method="post" action="/lotes/<%= l.id %>/enviar" class="inline">
-        <button class="btn primary" <%= ev.complete ? '' : 'disabled' %>>Enviar a aprobación del jefe de calidad</button>
+  <% if (l.status === 'en_proceso' || l.status === 'en_revision') { %>
+    <div class="card narrow">
+      <form method="post" action="/lotes/<%= l.id %>/liberar">
+        <label>Observaciones de liberación (opcional) <input name="decision_notes"></label>
+        <button class="btn primary wide" <%= ev.conforme ? '' : 'disabled' %>>Emitir certificado de calidad</button>
+        <% if (!ev.conforme) { %><p class="muted">Se habilita cuando el lote tiene todas sus muestras y pruebas, y todo cumple. Revisa las observaciones de arriba.</p>
+        <% } else { %><p class="muted">Recibe su consecutivo y queda listo para imprimir. El jefe de calidad lo verá para su visto bueno.</p><% } %>
       </form>
-      <% if (!ev.complete) { %><p class="muted">Se habilita cuando todas las muestras estén completas y todas las pruebas tengan resultado.</p><% } %>
-    <% } %>
+    </div>
     <% if (role === 'jefe') { %>
       <form method="post" action="/lotes/<%= l.id %>/rechazar" class="card narrow">
-        <label>Rechazar el lote directamente (motivo) <input name="decision_notes" required></label>
+        <label>Rechazar el lote (motivo) <input name="decision_notes" required></label>
         <button class="btn danger">Rechazar lote</button>
       </form>
     <% } %>
-  <% } else if (l.status === 'en_revision') { %>
-    <% if (role === 'jefe') { %>
-      <div class="card narrow">
-        <form method="post" action="/lotes/<%= l.id %>/liberar">
-          <label>Observaciones de liberación (opcional) <input name="decision_notes"></label>
-          <button class="btn primary" <%= ev.conforme ? '' : 'disabled' %>>Aprobar y emitir certificado</button>
-          <% if (!ev.conforme) { %><p class="muted">No se puede liberar: el lote no cumple todas las especificaciones y pruebas.</p><% } %>
-        </form>
-        <hr>
-        <form method="post" action="/lotes/<%= l.id %>/rechazar">
-          <label>Motivo del rechazo <input name="decision_notes" required></label>
-          <button class="btn danger">Rechazar lote</button>
-        </form>
-      </div>
-    <% } else { %>
-      <p>El lote está esperando la aprobación del jefe de calidad.</p>
-    <% } %>
-    <% if (role !== 'inspector') { %>
+    <% if (l.status === 'en_revision' && role !== 'inspector') { %>
       <form method="post" action="/lotes/<%= l.id %>/devolver" class="inline"><button class="btn small">Devolver a proceso para corregir</button></form>
     <% } %>
   <% } else if (l.status === 'liberado') { %>
     <p>Lote liberado con el certificado <strong><%= l.certificate_number %></strong>.</p>
+    <a class="btn primary" href="/certificados/<%= l.certificate_number %>.pdf" target="_blank">Imprimir certificado</a>
   <% } else { %>
     <p>Lote rechazado. Motivo: <%= l.decision_notes %></p>
   <% } %>

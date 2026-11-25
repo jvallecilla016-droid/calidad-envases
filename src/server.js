@@ -125,7 +125,9 @@ function createApp(db) {
     sql += ' ORDER BY l.id DESC LIMIT 200';
     const lots = await db.prepare(sql).all(...args);
     const counts = Object.fromEntries((await db.prepare('SELECT status, COUNT(*) AS n FROM lots GROUP BY status').all()).map((r) => [r.status, r.n]));
-    res.render('dashboard', { title: 'Lotes', lots, counts, status, q, tab: 'lotes' });
+    const toReview = req.session.user.role === 'jefe'
+      ? (await db.prepare('SELECT COUNT(*) AS n FROM certificates WHERE reviewed_by IS NULL').get()).n : 0;
+    res.render('dashboard', { title: 'Lotes', lots, counts, status, q, tab: 'lotes', toReview });
   });
 
   app.get('/lotes/nuevo', auth, async (req, res) => {
@@ -321,10 +323,12 @@ function createApp(db) {
     flash(req, 'ok', 'Lote devuelto a proceso para corrección');
     res.redirect(`/lotes/${req.ev.lot.id}`);
   });
-  app.post('/lotes/:id/liberar', role('jefe'), loadLot, async (req, res) => {
+  // Cualquier perfil emite el certificado cuando el lote cumple todo. Queda listo para imprimir
+  // y le llega al jefe de calidad en Certificados para su visto bueno.
+  app.post('/lotes/:id/liberar', auth, loadLot, async (req, res) => {
     try {
       const number = await releaseLot(db, req.ev.lot.id, req.session.user, (req.body.decision_notes || '').trim());
-      flash(req, 'ok', `Lote liberado. Certificado ${number} emitido.`);
+      flash(req, 'ok', `Certificado ${number} emitido. Imprímelo y entrégalo; el jefe de calidad lo verá para su visto bueno.`);
     } catch (e) {
       flash(req, 'error', e.message);
     }
@@ -346,10 +350,23 @@ function createApp(db) {
 
   // ---------- Certificados ----------
   app.get('/certificados', auth, async (req, res) => {
-    const certs = await db.prepare(`SELECT c.number, c.issued_at, l.id AS lot_id, l.lot_number, p.name AS product_name, p.molde, u.full_name AS issued_by_name
-      FROM certificates c JOIN lots l ON l.id = c.lot_id JOIN products p ON p.id = l.product_id LEFT JOIN users u ON u.id = c.issued_by
+    const pending = req.query.pendientes === '1';
+    const certs = await db.prepare(`SELECT c.number, c.issued_at, c.reviewed_at, l.id AS lot_id, l.lot_number, p.name AS product_name, p.molde,
+        u.full_name AS issued_by_name, r.full_name AS reviewed_by_name
+      FROM certificates c JOIN lots l ON l.id = c.lot_id JOIN products p ON p.id = l.product_id
+      LEFT JOIN users u ON u.id = c.issued_by LEFT JOIN users r ON r.id = c.reviewed_by
+      ${pending ? 'WHERE c.reviewed_by IS NULL' : ''}
       ORDER BY c.year DESC, c.seq DESC`).all();
-    res.render('certificates', { title: 'Certificados', certs });
+    res.render('certificates', { title: 'Certificados', certs, pending });
+  });
+  app.post('/certificados/:number/visto-bueno', role('jefe'), async (req, res) => {
+    const r = await db.prepare('UPDATE certificates SET reviewed_by = ?, reviewed_at = NOW() WHERE number = ? AND reviewed_by IS NULL')
+      .run(req.session.user.id, req.params.number);
+    if (r.changes) {
+      await audit(req, 'visto_bueno_certificado', req.params.number);
+      flash(req, 'ok', `Visto bueno registrado en ${req.params.number}`);
+    }
+    res.redirect(req.body.back === 'pendientes' ? '/certificados?pendientes=1' : '/certificados');
   });
   app.get('/certificados/:number.pdf', auth, async (req, res) => {
     const c = await db.prepare('SELECT * FROM certificates WHERE number = ?').get(req.params.number);

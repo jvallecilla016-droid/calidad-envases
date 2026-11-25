@@ -129,7 +129,7 @@ function releaseLot(db, lotId, user, notes) {
   return tx(db, async (db) => {
     const ev = await evaluateLot(db, lotId);
     if (!ev) throw new Error('Lote no encontrado');
-    if (ev.lot.status !== 'en_revision') throw new Error('El lote debe estar en revisión para liberarse');
+    if (!['en_proceso', 'en_revision'].includes(ev.lot.status)) throw new Error('El lote ya fue liberado o rechazado');
     if (!ev.conforme) throw new Error('El lote no cumple todas las especificaciones y pruebas');
 
     const year = yearNow();
