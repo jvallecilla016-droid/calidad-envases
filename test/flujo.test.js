@@ -92,11 +92,16 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1111', '1111', '1111']) });
   assert.strictEqual(await db.prepare('SELECT 1 FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id), undefined);
   // Un envase con 1 de 4 resistidos: no pasa
-  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1100', '1000', '1111', '1010']) });
+  // Envase 5 falla en la primera caída: aunque se marquen las siguientes, no cuentan (se cuentan en orden)
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1100', '1110', '1111', '0111']) });
   let tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
-  assert.deepStrictEqual([tr.result, tr.score, tr.detail], ['no_pasa', 4, '1,1,1,1;1,1,0,0;1,0,0,0;1,1,1,1;1,0,1,0']);
+  assert.deepStrictEqual([tr.result, tr.score, tr.detail], ['no_pasa', 4, '1,1,1,1;1,1,0,0;1,1,1,0;1,1,1,1;0,0,0,0']);
+  // Un envase que falla en la segunda caída (solo resistió 1) no se aprueba
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1000', '1110', '1111', '1111']) });
+  tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
+  assert.deepStrictEqual([tr.result, tr.score], ['no_pasa', 4]);
   // Los 5 envases con 2 o más resistidos: pasa
-  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1100', '1010', '1111', '0011']) });
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1100', '1110', '1111', '1100']) });
   tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
   assert.deepStrictEqual([tr.result, tr.score], ['pasa', 5]);
   // Filtración: 5 envases; uno que no pasa reprueba

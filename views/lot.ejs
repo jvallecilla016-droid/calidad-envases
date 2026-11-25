@@ -100,7 +100,7 @@
         <td><strong><%= t.type.name %></strong><% if (!t.type.active) { %> <small class="muted">(inactiva)</small><% } %></td>
         <td><% if (!r) { %><span class="muted">Pendiente</span><% } else { const groups = r.detail ? r.detail.split(';') : []; const names = t.type.items ? t.type.items.split(',') : null; const many = groups.length > 1; %><span class="tag <%= r.result === 'pasa' ? 'ok' : 'bad' %>"><%= r.result === 'pasa' ? 'APROBADO' : 'NO APROBADO' %></span><% if (many && groups.length < (t.type.units || 1)) { %> <small class="bad-text">faltan <%= (t.type.units || 1) - groups.length %> envases</small><% } %>
           <% groups.forEach((g, ui) => { const d = g.split(','); if (!many && !t.type.checks) return; %>
-          <div class="impactos"><% if (many) { %><b>E<%= ui + 1 %></b><% } %><% d.forEach((v, i) => { %><span class="<%= v === '1' ? 'si' : 'no' %>"><% if (names) { %><%= names[i] || i + 1 %>: <%= v === '1' ? 'no' : 'sí' %><% } else if (t.type.checks) { %><%= i + 1 %>: <%= v === '1' ? '✓' : '✗' %><% } else { %><%= v === '1' ? '✓ Aprobado' : '✗ No aprobado' %><% } %></span><% }) %></div>
+          <div class="impactos"><% if (many) { %><b>E<%= ui + 1 %></b><% } %><% d.forEach((v, i) => { %><span class="<%= v === '1' ? 'si' : 'no' %>"><% if (names) { %><%= names[i] || i + 1 %>: <%= v === '1' ? 'no' : 'sí' %><% } else if (t.type.checks) { const f = d.indexOf('0'); %><%= i + 1 %>: <%= f !== -1 && i >= f ? '✗' : '✓' %><% } else { %><%= v === '1' ? '✓ Aprobado' : '✗ No aprobado' %><% } %></span><% }) %></div>
           <% }) %><% } %></td>
         <td><%= r ? (r.observations || '') : '' %></td>
         <td><%= r ? r.performed_by_name + ' · ' + r.performed_at : '' %></td>
@@ -113,7 +113,7 @@
             <% if (t.type.checks > 0) { %>
             <% for (let u = 1; u <= units; u++) { const prev = prevG[u - 1] ? prevG[u - 1].split(',') : []; %>
             <fieldset class="checklist" data-min="<%= t.type.min_ok || t.type.checks %>" data-kind="<%= names ? 'defectos' : 'impactos' %>">
-              <legend><%= units > 1 ? `Envase ${u} de ${units}. ` : '' %><%= names ? '¿El producto tiene este defecto? Se aprueba solo si no tiene ninguno' : `¿Resistió cada impacto? Se aprueba con ${t.type.min_ok || t.type.checks} de ${t.type.checks}` %></legend>
+              <legend><%= units > 1 ? `Envase ${u} de ${units}. ` : '' %><%= names ? '¿El producto tiene este defecto? Se aprueba solo si no tiene ninguno' : `¿Resistió cada caída? Se aprueba si resiste mínimo ${t.type.min_ok || t.type.checks} caídas. Si falla una, las siguientes quedan como falladas` %></legend>
               <% for (let i = 1; i <= t.type.checks; i++) { const label = names ? (names[i - 1] || `Defecto ${i}`) : `Impacto ${i}`; %>
               <div class="chk-row">
                 <span class="chk-n"><%= label %></span>

@@ -5,7 +5,7 @@ const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { open, tx, parseItems } = require('./db');
-const { evaluateLot, releaseLot, specPoints } = require('./quality');
+const { evaluateLot, releaseLot, specPoints, resisted } = require('./quality');
 const { certificatePdf } = require('./pdf');
 const indicadores = require('./indicadores');
 
@@ -266,11 +266,15 @@ function createApp(db) {
       return res.redirect(`/lotes/${req.ev.lot.id}`);
     }
     const minOk = type.min_ok || type.checks;
-    const unitOk = (g) => (type.checks > 0 ? g.filter((v) => v === '1').length >= minOk : g[0] === '1');
+    // Impacto: después de la primera caída que falla, las siguientes quedan como falladas.
+    if (type.checks > 0 && !type.items) {
+      for (const g of groups) { const r = resisted(g); for (let i = r; i < g.length; i++) g[i] = '0'; }
+    }
+    const unitOk = (g) => (type.checks > 0 ? (type.items ? g.filter((v) => v === '1').length : resisted(g)) >= minOk : g[0] === '1');
     const okUnits = groups.filter(unitOk).length;
     const result = okUnits === units ? 'pasa' : 'no_pasa';
     const detail = groups.map((g) => g.join(',')).join(';');
-    const score = units > 1 ? okUnits : type.checks > 0 ? groups[0].filter((v) => v === '1').length : null;
+    const score = units > 1 ? okUnits : type.checks > 0 ? (type.items ? groups[0].filter((v) => v === '1').length : resisted(groups[0])) : null;
     let note = '';
     if (type.items) {
       const names = type.items.split(',');
@@ -279,7 +283,7 @@ function createApp(db) {
     } else if (units > 1) {
       note = ` (${okUnits} de ${units} envases conformes)`;
     } else if (type.checks > 0) {
-      note = ` (${score} de ${type.checks} impactos resistidos)`;
+      note = ` (${score} de ${type.checks} caídas resistidas)`;
     }
     await db.prepare(`INSERT INTO test_results (lot_id, test_type_id, result, observations, performed_by, detail, score) VALUES (?,?,?,?,?,?,?)
       ON CONFLICT (lot_id, test_type_id) DO UPDATE SET result = excluded.result, observations = excluded.observations,
