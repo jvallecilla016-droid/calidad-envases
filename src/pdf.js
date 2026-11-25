@@ -79,7 +79,7 @@ function certificatePdf(snap, stream) {
     } else if (groups.length > 1) {
       obs = `${groups.length} envases probados` + (obs ? `. ${obs}` : '');
     }
-    y = tableRow(doc, tcols, [t.name, (t.result === 'pasa' ? 'PASA' : 'NO PASA') + extra, t.performed_by || '—', t.performed_at, obs], L, y,
+    y = tableRow(doc, tcols, [t.name, (t.result === 'pasa' ? 'APROBADO' : 'NO APROBADO') + extra, t.performed_by || '—', t.performed_at, obs], L, y,
       { color1: t.result === 'pasa' ? '#1d7a35' : '#b3261e' });
   }
   y += 14;
@@ -131,6 +131,49 @@ function certificatePdf(snap, stream) {
     y += 10;
   }
 
+  // Anexo: detalle de pruebas por envase (impacto, filtración, inspección visual)
+  const detailed = snap.tests.filter((t) => t.detail && (t.checks || t.detail.includes(';')));
+  if (detailed.length) {
+    if (y > doc.page.height - 150) { doc.addPage(); y = 40; } else y += 6;
+    y = sectionTitle(doc, `Anexo. Pruebas de liberación por envase — Lote ${lot.lot_number}`, L, y, W);
+    for (const t of detailed) {
+      if (y > doc.page.height - 120) { doc.addPage(); y = 40; }
+      const groups = t.detail.split(';').map((g) => g.split(','));
+      const names = t.items ? t.items.split(',') : null;
+      const n = t.checks || 0;
+      const rule = names ? 'Se aprueba si no tiene ningún defecto'
+        : n ? `Cada envase se aprueba con ${t.min_ok || n} de ${n} impactos resistidos` : 'Resultado por envase';
+      doc.font('Helvetica-Bold').fontSize(9).text(`${t.name}  ·  ${rule}  ·  ${t.performed_by || ''}  ·  ${t.performed_at || ''}`, L, y, { width: W });
+      y = doc.y + 4;
+      const first = 60;
+      const last = 80;
+      if (n && !names) {
+        // Checklist de impactos: una casilla por golpe (✓ resistió, ✗ falló) y el total resistido.
+        const tot = 70;
+        const mid = (W - first - tot - last) / n;
+        const cols = [['Envase', first], ...[...Array(n)].map((_, i) => [`Impacto ${i + 1}`, mid]), ['Resistió', tot], ['Resultado', last]];
+        y = tableHeader(doc, cols, L, y);
+        groups.forEach((g, ui) => {
+          const si = g.filter((v) => v === '1').length;
+          const ok = si >= (t.min_ok || n);
+          y = tableRow(doc, cols, [String(ui + 1), ...g.map(() => ''), `${si} de ${n}`, ok ? 'APROBADO' : 'NO APROBADO'], L, y, { last: ok ? '#1d7a35' : '#b3261e' });
+          const rowTop = y - 13;
+          g.forEach((v, i) => checkbox(doc, L + first + i * mid + mid / 2 - 5, rowTop + 1.5, v === '1'));
+        });
+      } else {
+        const mid = n ? (W - first - last) / n : 0;
+        const cols = [['Envase', first], ...[...Array(n)].map((_, i) => [names[i] || `Defecto ${i + 1}`, mid]), ['Resultado', n ? last : W - first]];
+        y = tableHeader(doc, cols, L, y);
+        groups.forEach((g, ui) => {
+          const ok = n ? g.every((v) => v === '1') : g[0] === '1';
+          const cells = n ? g.map((v) => (v === '1' ? 'No tiene' : 'Sí tiene')) : [];
+          y = tableRow(doc, cols, [String(ui + 1), ...cells, ok ? 'APROBADO' : 'NO APROBADO'], L, y, { last: ok ? '#1d7a35' : '#b3261e' });
+        });
+      }
+      y += 10;
+    }
+  }
+
   // Pie de página
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
@@ -141,6 +184,14 @@ function certificatePdf(snap, stream) {
       L, doc.page.height - 30, { width: W, align: 'center', lineBreak: false });
   }
   doc.end();
+}
+
+// Casilla de 10 pt: con chulo verde si resistió, con X roja si falló.
+function checkbox(doc, x, y, ok) {
+  doc.save().lineWidth(0.8).rect(x, y, 10, 10).stroke('#555');
+  if (ok) doc.lineWidth(1.6).moveTo(x + 2, y + 5.2).lineTo(x + 4.3, y + 7.8).lineTo(x + 8.4, y + 2.2).stroke('#1d7a35');
+  else doc.lineWidth(1.4).moveTo(x + 2.3, y + 2.3).lineTo(x + 7.7, y + 7.7).moveTo(x + 7.7, y + 2.3).lineTo(x + 2.3, y + 7.7).stroke('#b3261e');
+  doc.restore();
 }
 
 function sectionTitle(doc, text, x, y, w) {

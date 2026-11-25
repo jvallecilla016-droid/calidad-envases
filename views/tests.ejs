@@ -1,6 +1,6 @@
 <%- include('partials/header') %>
 <h1>Pruebas de liberación</h1>
-<p class="muted">Toda prueba activa es obligatoria: un lote solo se libera si todas tienen resultado «Pasa». Una prueba con casillas (como la de impacto) exige marcar todas las casillas y pasa cuando las resistidas llegan al mínimo. Una inspección con lista de defectos pasa solo si el producto no tiene ninguno.</p>
+<p class="muted">Toda prueba activa es obligatoria: un lote solo se libera si todas tienen resultado «Aprobado». Una prueba con casillas (como la de impacto) exige marcar todas las casillas y se aprueba cuando las resistidas llegan al mínimo. Una inspección con lista de defectos se aprueba solo si el producto no tiene ninguno.</p>
 <table class="grid">
   <thead><tr><th>Código</th><th>Prueba</th><th>Descripción</th><th>Cómo se registra</th><th>Envases por lote</th><th>Estado</th><% if (user.role !== 'inspector') { %><th></th><% } %></tr></thead>
   <tbody>
@@ -9,7 +9,7 @@
       <td><%= t.code %></td><td><strong><%= t.name %></strong></td><td><%= t.description || '' %></td>
       <td>
         <% if (t.items) { %>
-        Lista de defectos: <%= t.items.split(',').join(', ') %>. Pasa si no hay ninguno.
+        Lista de defectos: <%= t.items.split(',').join(', ') %>. Se aprueba si no hay ninguno.
         <% if (user.role !== 'inspector') { %>
         <form method="post" action="/pruebas/<%= t.id %>/defectos" class="casillas-form">
           <label>Defectos a revisar (separados por coma) <input name="items" value="<%= t.items.split(',').join(', ') %>"></label>
@@ -17,7 +17,7 @@
         </form>
         <% } %>
         <% } else { %>
-        <%= t.checks ? `${t.checks} casillas, pasa con ${t.min_ok} o más` : 'Pasa / No pasa' %>
+        <%= t.checks ? `${t.checks} casillas, se aprueba con ${t.min_ok} o más` : 'Aprobado / No aprobado' %>
         <% if (user.role !== 'inspector') { %>
         <form method="post" action="/pruebas/<%= t.id %>/casillas" class="inline casillas-form">
           <label>Casillas <input type="number" name="checks" min="0" max="10" value="<%= t.checks || 0 %>" inputmode="numeric"></label>
@@ -49,11 +49,11 @@
   <label>Nombre * <input name="name" required placeholder="Ej. Prueba de apilamiento"></label>
   <label>Descripción / método <textarea name="description" rows="2"></textarea></label>
   <div class="row">
-    <label>Casillas (0 = solo pasa / no pasa) <input type="number" name="checks" min="0" max="10" value="0" inputmode="numeric"></label>
+    <label>Casillas (0 = solo aprobado / no aprobado) <input type="number" name="checks" min="0" max="10" value="0" inputmode="numeric"></label>
     <label>Mínimo de casillas para pasar <input type="number" name="min_ok" min="1" max="10" inputmode="numeric"></label>
   </div>
   <label>Envases por lote <input type="number" name="units" min="1" max="20" value="1" inputmode="numeric"></label>
-  <label>O lista de defectos a revisar (separados por coma; pasa solo si no hay ninguno) <input name="items" placeholder="Ej. Rebaba, Deformado, Color fuera de tono"></label>
+  <label>O lista de defectos a revisar (separados por coma; se aprueba solo si no hay ninguno) <input name="items" placeholder="Ej. Rebaba, Deformado, Color fuera de tono"></label>
   <button class="btn primary">Agregar</button>
 </form>
 <% } %>

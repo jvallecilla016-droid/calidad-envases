@@ -384,14 +384,14 @@ const MIGRATIONS = [
     await db.exec('ALTER TABLE test_types ADD COLUMN min_ok INTEGER');
     await db.exec('ALTER TABLE test_results ADD COLUMN detail TEXT');
     await db.exec('ALTER TABLE test_results ADD COLUMN score INTEGER');
-    await db.exec("UPDATE test_types SET checks = 4, min_ok = 2, description = 'Se dan 4 impactos al envase y se marca en cada casilla si resistió. Pasa si resiste al menos 2.' WHERE code = 'IMPACTO'");
+    await db.exec("UPDATE test_types SET checks = 4, min_ok = 2, description = 'Se dan 4 impactos al envase y se marca en cada casilla si resistió. Se aprueba si resiste al menos 2.' WHERE code = 'IMPACTO'");
   },
-  // 2. Inspección visual: lista de defectos con nombre; pasa solo si no aparece ninguno.
+  // 2. Inspección visual: lista de defectos con nombre; se aprueba solo si no aparece ninguno.
   async (db) => {
     await db.exec('ALTER TABLE test_types ADD COLUMN items TEXT');
     if (!(await db.prepare("SELECT 1 FROM test_types WHERE code = 'VISUAL'").get())) {
       await db.prepare('INSERT INTO test_types (code, name, description, checks, min_ok, items) VALUES (?,?,?,?,?,?)')
-        .run('VISUAL', 'Inspección visual', 'Revisar el producto a la vista. Marcar cada defecto como presente o ausente. Pasa solo si no tiene ninguno.', VISUAL_ITEMS.length, VISUAL_ITEMS.length, VISUAL_ITEMS.join(','));
+        .run('VISUAL', 'Inspección visual', 'Revisar el producto a la vista. Marcar cada defecto como presente o ausente. Se aprueba solo si no tiene ninguno.', VISUAL_ITEMS.length, VISUAL_ITEMS.length, VISUAL_ITEMS.join(','));
     }
   },
   // 3. Usuarios del equipo de calidad. Entran con la contraseña inicial y deben cambiarla.
@@ -418,6 +418,10 @@ const MIGRATIONS = [
   async (db) => {
     await db.exec('ALTER TABLE certificates ADD COLUMN reviewed_by INTEGER REFERENCES users(id)');
     await db.exec('ALTER TABLE certificates ADD COLUMN reviewed_at TEXT');
+  },
+  // 7. Resultados como «Aprobado / No aprobado» también en las descripciones guardadas.
+  async (db) => {
+    await db.exec("UPDATE test_types SET description = REPLACE(REPLACE(description, 'Pasa solo si', 'Se aprueba solo si'), 'Pasa si', 'Se aprueba si')");
   },
 ];
 

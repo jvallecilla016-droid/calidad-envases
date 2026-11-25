@@ -284,7 +284,7 @@ function createApp(db) {
       .run(req.ev.lot.id, typeId, result, (req.body.observations || '').trim() || null, req.session.user.id, detail, score);
     const extra = note;
     await audit(req, 'registrar_prueba', `${req.ev.lot.lot_number} ${type.code}=${result}${extra}`);
-    flash(req, result === 'pasa' ? 'ok' : 'error', `${type.name}: ${result === 'pasa' ? 'PASA' : 'NO PASA'}${extra}`);
+    flash(req, result === 'pasa' ? 'ok' : 'error', `${type.name}: ${result === 'pasa' ? 'APROBADO' : 'NO APROBADO'}${extra}`);
     res.redirect(`/lotes/${req.ev.lot.id}`);
   });
 
@@ -493,7 +493,7 @@ function createApp(db) {
     const minOk = checks ? Math.min(Math.max(Number(req.body.min_ok) || checks, 1), checks) : null;
     await db.prepare('UPDATE test_types SET checks = ?, min_ok = ? WHERE id = ? AND items IS NULL').run(checks, minOk, Number(req.params.id));
     await audit(req, 'cambiar_casillas_prueba', `${req.params.id}: ${checks} casillas, mínimo ${minOk ?? '-'}`);
-    flash(req, 'ok', checks ? `Prueba con ${checks} casillas; pasa con ${minOk} o más` : 'Prueba de resultado simple (pasa / no pasa)');
+    flash(req, 'ok', checks ? `Prueba con ${checks} casillas; se aprueba con ${minOk} o más` : 'Prueba de resultado simple (aprobado / no aprobado)');
     res.redirect('/pruebas');
   });
   app.post('/pruebas/:id/envases', role('analista', 'jefe'), async (req, res) => {
