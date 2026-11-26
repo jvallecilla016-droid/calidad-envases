@@ -188,6 +188,128 @@ function certificatePdf(snap, stream) {
   doc.end();
 }
 
+// Informe de lote rechazado, con hallazgos y evidencia fotográfica.
+function rejectionPdf(ev, photos, stream) {
+  const doc = new PDFDocument({ size: 'LETTER', margin: 40, bufferPages: true, info: { Title: `Informe de rechazo ${ev.lot.lot_number}` } });
+  doc.pipe(stream);
+  const L = 40;
+  const W = doc.page.width - 80;
+  const lot = ev.lot;
+  const RED = '#b3261e';
+
+  doc.rect(L, 40, W, 60).stroke(RED);
+  doc.fillColor('#1f3b57').font('Helvetica-Bold').fontSize(13).text(COMPANY(), L + 10, 50, { width: W - 180 });
+  doc.fillColor(RED).font('Helvetica-Bold').fontSize(11).text('INFORME DE LOTE RECHAZADO', L + 10, 72, { width: W - 180 });
+  doc.fontSize(9).font('Helvetica').fillColor('#333').text('Control de calidad de producto terminado', L + 10, 86);
+  doc.rect(L + W - 160, 40, 160, 60).fill(RED);
+  doc.fillColor('#fff').fontSize(9).text('LOTE', L + W - 160, 52, { width: 160, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(14).text(lot.lot_number, L + W - 160, 66, { width: 160, align: 'center' });
+  doc.fillColor('#000');
+
+  let y = 115;
+  const info = [
+    ['Producto', `${lot.product_name} (${lot.product_code})`],
+    ['Tipo de molde', lot.molde],
+    ['Fecha de producción', lot.production_date],
+    ['Turno / Máquina', [lot.shift, lot.machine].filter(Boolean).join(' / ') || '—'],
+    ['Cantidad del lote', lot.quantity ? `${lot.quantity} unidades` : '—'],
+    ['Muestras evaluadas', String(ev.samples.length)],
+    ['Rechazado por', lot.decided_by_name],
+    ['Fecha de rechazo', lot.decided_at],
+  ];
+  const colW = W / 2;
+  info.forEach(([k, v], i) => {
+    const x = L + (i % 2) * colW;
+    const yy = y + Math.floor(i / 2) * 18;
+    doc.font('Helvetica-Bold').fontSize(8.5).text(k + ':', x, yy, { width: 105 });
+    doc.font('Helvetica').text(v || '—', x + 105, yy, { width: colW - 110 });
+  });
+  y += Math.ceil(info.length / 2) * 18 + 10;
+
+  y = sectionTitle(doc, '1. Motivo del rechazo', L, y, W);
+  doc.font('Helvetica').fontSize(9).text(lot.decision_notes || '—', L + 4, y, { width: W - 8 });
+  y = doc.y + 10;
+
+  y = sectionTitle(doc, '2. Hallazgos registrados', L, y, W);
+  const found = ev.problems.length ? ev.problems : ['Sin hallazgos automáticos: ver motivo y evidencia fotográfica.'];
+  doc.font('Helvetica').fontSize(8.5);
+  for (const p of found) {
+    if (y > doc.page.height - 60) { doc.addPage(); y = 40; }
+    doc.text('• ' + p, L + 4, y, { width: W - 8 });
+    y = doc.y + 2;
+  }
+  y += 8;
+
+  if (y > doc.page.height - 120) { doc.addPage(); y = 40; }
+  y = sectionTitle(doc, '3. Especificaciones (peso y dimensiones)', L, y, W);
+  const cols = [['Característica', 170, 'left'], ['Unid.', 40], ['LIC', 50], ['LSC', 50], ['Mín', 50], ['Máx', 50], ['Fuera', 40], ['Resultado', W - 450]];
+  y = tableHeader(doc, cols, L, y);
+  for (const x of ev.specSummary) {
+    const s = x.spec;
+    const res = x.n ? (x.ok ? 'CONFORME' : 'NO CONFORME') : 'SIN DATOS';
+    y = tableRow(doc, cols, [s.characteristic, s.unit, fmt(s.lic), fmt(s.lsc), fmt(x.min, 2), fmt(x.max, 2), String(x.out), res], L, y, { last: x.ok ? '#1d7a35' : RED });
+  }
+  y += 10;
+
+  if (y > doc.page.height - 100) { doc.addPage(); y = 40; }
+  y = sectionTitle(doc, '4. Pruebas', L, y, W);
+  const tcols = [['Prueba', 200, 'left'], ['Realizada por', 160, 'left'], ['Resultado', W - 360]];
+  y = tableHeader(doc, tcols, L, y);
+  for (const t of ev.tests) {
+    const r = t.result;
+    const res = !r ? 'PENDIENTE' : r.result === 'pasa' ? 'APROBADO' : 'NO APROBADO';
+    y = tableRow(doc, tcols, [t.type.name, r ? r.performed_by_name || '—' : '—', res], L, y, { last: r && r.result === 'pasa' ? '#1d7a35' : RED });
+  }
+  y += 10;
+
+  // Evidencia fotográfica: 2 por fila.
+  if (y > doc.page.height - 120) { doc.addPage(); y = 40; }
+  y = sectionTitle(doc, `5. Evidencia fotográfica (${photos.length})`, L, y, W);
+  if (!photos.length) {
+    doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#444').text('No se adjuntaron fotos.', L + 4, y);
+    doc.fillColor('#000');
+  }
+  const gap = 12;
+  const pw = (W - gap) / 2;
+  const ph = 190;
+  photos.forEach((p, i) => {
+    const col = i % 2;
+    if (col === 0 && y + ph + 40 > doc.page.height - 45) { doc.addPage(); y = 40; }
+    const x = L + col * (pw + gap);
+    doc.rect(x, y, pw, ph).stroke('#c8ced4');
+    try {
+      doc.image(Buffer.from(p.data, 'base64'), x + 4, y + 4, { fit: [pw - 8, ph - 8], align: 'center', valign: 'center' });
+    } catch (e) {
+      doc.font('Helvetica-Oblique').fontSize(8).text('Imagen no disponible', x, y + ph / 2, { width: pw, align: 'center' });
+    }
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#000').text(`Foto ${i + 1}${p.caption ? ': ' + p.caption : ''}`, x, y + ph + 3, { width: pw });
+    doc.font('Helvetica').fontSize(7.5).fillColor('#444').text(`${p.taken_by_name || '—'} · ${p.created_at}`, x, doc.y + 1, { width: pw });
+    doc.fillColor('#000');
+    if (col === 1 || i === photos.length - 1) y += ph + 38;
+  });
+
+  // Firmas
+  if (y > doc.page.height - 110) { doc.addPage(); y = 40; }
+  y = Math.max(y + 20, doc.y + 30);
+  const sw = (W - 40) / 2;
+  [['Rechazó', lot.decided_by_name], ['Recibe (producción)', '']].forEach(([k, v], i) => {
+    const x = L + i * (sw + 40);
+    doc.moveTo(x, y + 30).lineTo(x + sw, y + 30).stroke('#555');
+    doc.font('Helvetica-Bold').fontSize(8.5).text(k, x, y + 34, { width: sw, align: 'center' });
+    doc.font('Helvetica').fontSize(8).text(v || ' ', x, y + 46, { width: sw, align: 'center' });
+  });
+
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(i);
+    doc.page.margins.bottom = 0;
+    doc.font('Helvetica').fontSize(7.5).fillColor('#666').text(
+      `Informe de rechazo · Lote ${lot.lot_number} · Página ${i + 1} de ${range.count}`,
+      L, doc.page.height - 30, { width: W, align: 'center', lineBreak: false });
+  }
+  doc.end();
+}
+
 // Casilla de 10 pt: con chulo verde si resistió, con X roja si falló.
 function checkbox(doc, x, y, ok) {
   doc.save().lineWidth(0.8).rect(x, y, 10, 10).stroke('#555');
@@ -233,4 +355,4 @@ function tableRow(doc, cols, values, x, y, opts = {}) {
   return y + h;
 }
 
-module.exports = { certificatePdf };
+module.exports = { certificatePdf, rejectionPdf };
