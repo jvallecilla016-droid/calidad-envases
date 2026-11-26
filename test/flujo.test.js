@@ -275,3 +275,45 @@ test('certificados antiguos sin mínimo de impacto se evalúan con 2 caídas', a
   assert.strictEqual(s.tests[0].min_ok, 2);
   await db.close();
 });
+
+test('evidencia fotográfica en lote rechazado', async (t) => {
+  const db = await testDb();
+  const server = createApp(db).listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const login = async (u) => { const c = client(base); await c.post('/login', { username: u, password: DEFAULT_PASSWORD }); return c; };
+  const insp = await login('inspector');
+  const jefe = await login('jefe');
+  const prod = await db.prepare("SELECT id FROM products WHERE code = 'REF04-CF'").get();
+  await insp.post('/lotes', { lot_number: 'FOTO-1', product_id: prod.id, production_date: '2026-11-26' });
+  const lot = await db.prepare("SELECT id FROM lots WHERE lot_number = 'FOTO-1'").get();
+
+  // PNG 1x1 válido
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  await insp.post(`/lotes/${lot.id}/fotos`, { photo: 'data:image/png;base64,' + png, caption: 'Envase roto en la base' });
+  await insp.post(`/lotes/${lot.id}/fotos`, { photo: 'no es una foto' });
+  const fotos = await db.prepare('SELECT id, caption FROM lot_photos WHERE lot_id = ?').all(lot.id);
+  assert.strictEqual(fotos.length, 1);
+  assert.strictEqual(fotos[0].caption, 'Envase roto en la base');
+
+  const img = await insp.get(`/fotos/${fotos[0].id}`);
+  assert.strictEqual(img.headers.get('content-type'), 'image/png');
+  assert.strictEqual(Buffer.from(await img.arrayBuffer()).toString('base64'), png);
+  assert.match(await (await insp.get(`/lotes/${lot.id}`)).text(), /Envase roto en la base/);
+
+  // Antes del rechazo no hay informe
+  assert.strictEqual((await jefe.get(`/lotes/${lot.id}/informe.pdf`)).status, 302);
+  await jefe.post(`/lotes/${lot.id}/rechazar`, { decision_notes: 'Envases rotos' });
+  const pdf = await jefe.get(`/lotes/${lot.id}/informe.pdf`);
+  assert.strictEqual(pdf.status, 200);
+  assert.strictEqual(pdf.headers.get('content-type'), 'application/pdf');
+  const bytes = Buffer.from(await pdf.arrayBuffer());
+  assert.ok(bytes.subarray(0, 4).toString() === '%PDF');
+  assert.match(await (await jefe.get(`/lotes/${lot.id}`)).text(), /Informe de rechazo \(PDF\)/);
+
+  // El aprendiz no elimina fotos; el jefe sí
+  await insp.post(`/fotos/${fotos[0].id}/eliminar`);
+  assert.ok(await db.prepare('SELECT 1 FROM lot_photos WHERE id = ?').get(fotos[0].id));
+  await jefe.post(`/fotos/${fotos[0].id}/eliminar`);
+  assert.strictEqual(await db.prepare('SELECT 1 FROM lot_photos WHERE id = ?').get(fotos[0].id), undefined);
+});

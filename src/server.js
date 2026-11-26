@@ -6,7 +6,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { open, tx, parseItems } = require('./db');
 const { evaluateLot, releaseLot, specPoints, resisted } = require('./quality');
-const { certificatePdf } = require('./pdf');
+const { certificatePdf, rejectionPdf } = require('./pdf');
 const indicadores = require('./indicadores');
 
 // Cambia en cada despliegue: se agrega a los enlaces del PDF para no usar copias guardadas.
@@ -19,7 +19,8 @@ function createApp(db) {
   app.set('view engine', 'ejs');
   app.set('trust proxy', 1);
   app.set('views', path.join(__dirname, '..', 'views'));
-  app.use(express.urlencoded({ extended: true }));
+  // Límite amplio para las fotos de evidencia (se reducen en el celular antes de enviarlas).
+  app.use(express.urlencoded({ extended: true, limit: '8mb' }));
   app.use('/static', express.static(path.join(__dirname, '..', 'public')));
   const pub = (f, type) => async (req, res) => { res.type(type); res.setHeader('Cache-Control', 'no-cache'); res.sendFile(path.join(__dirname, '..', 'public', f)); };
   app.get('/sw.js', pub('sw.js', 'application/javascript'));
@@ -170,7 +171,7 @@ function createApp(db) {
   };
 
   app.get('/lotes/:id', auth, loadLot, async (req, res) => {
-    res.render('lot', { title: `Lote ${req.ev.lot.lot_number}`, ev: req.ev, specPoints });
+    res.render('lot', { title: `Lote ${req.ev.lot.lot_number}`, ev: req.ev, specPoints, photos: await loadPhotos(req.ev.lot.id), MAX_PHOTOS });
   });
 
   // Muestras
@@ -353,6 +354,54 @@ function createApp(db) {
     await audit(req, 'rechazar_lote', `${req.ev.lot.lot_number}: ${notes}`);
     flash(req, 'ok', 'Lote rechazado');
     res.redirect(`/lotes/${req.ev.lot.id}`);
+  });
+
+  // ---------- Evidencia fotográfica ----------
+  // Las fotos se guardan en la base central (Neon), no en el disco de Render.
+  const MAX_PHOTOS = 8;
+  const loadPhotos = (lotId) => db.prepare(`SELECT ph.id, ph.caption, ph.created_at, u.full_name AS taken_by_name
+    FROM lot_photos ph LEFT JOIN users u ON u.id = ph.taken_by WHERE ph.lot_id = ? ORDER BY ph.id`).all(lotId);
+  app.post('/lotes/:id/fotos', auth, loadLot, async (req, res) => {
+    const lot = req.ev.lot;
+    const back = `/lotes/${lot.id}#evidencia`;
+    if (lot.status === 'liberado') { flash(req, 'error', 'El lote ya está liberado'); return res.redirect(back); }
+    const m = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=]+)$/.exec(String(req.body.photo || ''));
+    if (!m) { flash(req, 'error', 'Toma o elige una foto antes de guardar'); return res.redirect(back); }
+    if (m[2].length > 6 * 1024 * 1024) { flash(req, 'error', 'La foto es muy pesada'); return res.redirect(back); }
+    const { n } = await db.prepare('SELECT COUNT(*) AS n FROM lot_photos WHERE lot_id = ?').get(lot.id);
+    if (n >= MAX_PHOTOS) { flash(req, 'error', `Máximo ${MAX_PHOTOS} fotos por lote`); return res.redirect(back); }
+    await db.prepare('INSERT INTO lot_photos (lot_id, mime, data, caption, taken_by) VALUES (?,?,?,?,?)')
+      .run(lot.id, m[1], m[2], String(req.body.caption || '').trim().slice(0, 200) || null, req.session.user.id);
+    await audit(req, 'agregar_foto', lot.lot_number);
+    flash(req, 'ok', 'Foto de evidencia guardada');
+    res.redirect(back);
+  });
+  app.get('/fotos/:id', auth, async (req, res) => {
+    const ph = await db.prepare('SELECT mime, data FROM lot_photos WHERE id = ?').get(Number(req.params.id));
+    if (!ph) return res.status(404).end();
+    res.setHeader('Content-Type', ph.mime);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.end(Buffer.from(ph.data, 'base64'));
+  });
+  app.post('/fotos/:id/eliminar', role('analista', 'jefe'), async (req, res) => {
+    const ph = await db.prepare('SELECT ph.id, ph.lot_id, l.status, l.lot_number FROM lot_photos ph JOIN lots l ON l.id = ph.lot_id WHERE ph.id = ?').get(Number(req.params.id));
+    if (!ph) return res.redirect('/');
+    if (ph.status !== 'liberado') {
+      await db.prepare('DELETE FROM lot_photos WHERE id = ?').run(ph.id);
+      await audit(req, 'eliminar_foto', ph.lot_number);
+      flash(req, 'ok', 'Foto eliminada');
+    }
+    res.redirect(`/lotes/${ph.lot_id}#evidencia`);
+  });
+  // Informe de lote rechazado: motivo, hallazgos, mediciones, pruebas y fotos.
+  app.get('/lotes/:id/informe.pdf', auth, loadLot, async (req, res) => {
+    if (req.ev.lot.status !== 'rechazado') return res.redirect(`/lotes/${req.ev.lot.id}`);
+    const photos = await db.prepare(`SELECT ph.mime, ph.data, ph.caption, ph.created_at, u.full_name AS taken_by_name
+      FROM lot_photos ph LEFT JOIN users u ON u.id = ph.taken_by WHERE ph.lot_id = ? ORDER BY ph.id`).all(req.ev.lot.id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Content-Disposition', `inline; filename="Rechazo-${req.ev.lot.lot_number}.pdf"`);
+    rejectionPdf(req.ev, photos, res);
   });
 
   // ---------- Certificados ----------
@@ -561,7 +610,8 @@ function createApp(db) {
       (SELECT COUNT(*) FROM lots WHERE created_by = ? OR submitted_by = ? OR decided_by = ?) +
       (SELECT COUNT(*) FROM samples WHERE taken_by = ?) +
       (SELECT COUNT(*) FROM test_results WHERE performed_by = ?) +
-      (SELECT COUNT(*) FROM certificates WHERE issued_by = ?) AS n`).get(id, id, id, id, id, id);
+      (SELECT COUNT(*) FROM certificates WHERE issued_by = ?) +
+      (SELECT COUNT(*) FROM lot_photos WHERE taken_by = ?) AS n`).get(id, id, id, id, id, id, id);
     if (n > 0) {
       await db.prepare('UPDATE users SET active = 0 WHERE id = ?').run(id);
       await audit(req, 'desactivar_usuario', u.username);

@@ -125,3 +125,43 @@ document.querySelectorAll('fieldset.checklist').forEach((fs) => {
 document.querySelectorAll('form[data-confirm]').forEach((f) => {
   f.addEventListener('submit', (e) => { if (!window.confirm(f.dataset.confirm)) e.preventDefault(); });
 });
+
+// Evidencia fotográfica: la foto se reduce en el celular (máx. 1600 px, JPEG) antes de enviarla.
+(function () {
+  const form = document.getElementById('photo-form');
+  if (!form) return;
+  const file = document.getElementById('photo-file');
+  const data = document.getElementById('photo-data');
+  const preview = document.getElementById('photo-preview');
+  const btn = document.getElementById('photo-btn');
+  let ready = null;
+  file.addEventListener('change', () => {
+    data.value = '';
+    const f = file.files && file.files[0];
+    if (!f) return;
+    btn.disabled = true; btn.textContent = 'Preparando foto…';
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    ready = new Promise((resolve) => {
+      img.onload = () => {
+        const max = 1600;
+        const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        data.value = c.toDataURL('image/jpeg', 0.75);
+        preview.src = data.value; preview.hidden = false;
+        URL.revokeObjectURL(url);
+        btn.disabled = false; btn.textContent = 'Guardar foto';
+        resolve();
+      };
+      img.onerror = () => { btn.disabled = false; btn.textContent = 'Guardar foto'; window.alert('No se pudo leer la imagen. Intenta con otra foto.'); resolve(); };
+    });
+    img.src = url;
+  });
+  form.addEventListener('submit', (e) => {
+    if (!data.value) { e.preventDefault(); if (ready) ready.then(() => { if (data.value) form.requestSubmit(); }); return; }
+    file.disabled = true; // el archivo original no se envía, solo la versión reducida
+    btn.disabled = true; btn.textContent = 'Enviando…';
+  });
+})();

@@ -103,6 +103,15 @@ CREATE TABLE IF NOT EXISTS certificates (
   snapshot TEXT NOT NULL,
   UNIQUE (year, seq)
 );
+CREATE TABLE IF NOT EXISTS lot_photos (
+  id INTEGER PRIMARY KEY,
+  lot_id INTEGER NOT NULL REFERENCES lots(id) ON DELETE CASCADE,
+  mime TEXT NOT NULL,
+  data TEXT NOT NULL,
+  caption TEXT,
+  taken_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (__NOW__)
+);
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
@@ -331,7 +340,7 @@ class PgStore {
   async close() { await this.pool.end(); }
 }
 
-const TABLES = ['meta', 'audit_log', 'certificates', 'test_results', 'measurements', 'samples', 'lots', 'test_types', 'specs', 'products', 'users', 'session'];
+const TABLES = ['meta', 'lot_photos', 'audit_log', 'certificates', 'test_results', 'measurements', 'samples', 'lots', 'test_types', 'specs', 'products', 'users', 'session'];
 
 function pgSchema() {
   return SCHEMA

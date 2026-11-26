@@ -166,6 +166,7 @@
     <% if (role === 'jefe') { %>
       <form method="post" action="/lotes/<%= l.id %>/rechazar" class="card narrow">
         <label>Rechazar el lote (motivo) <input name="decision_notes" required></label>
+        <p class="muted">Antes de rechazar, agrega las fotos de evidencia en la sección 4. Salen en el informe de rechazo.</p>
         <button class="btn danger">Rechazar lote</button>
       </form>
     <% } %>
@@ -177,6 +178,34 @@
     <a class="btn primary" href="/certificados/<%= l.certificate_number %>.pdf?v=<%= v %>" target="_blank">Imprimir certificado</a>
   <% } else { %>
     <p>Lote rechazado. Motivo: <%= l.decision_notes %></p>
+    <a class="btn primary" href="/lotes/<%= l.id %>/informe.pdf?v=<%= v %>&f=<%= photos.length %>" target="_blank">Informe de rechazo (PDF)</a>
+  <% } %>
+</section>
+
+<section id="evidencia">
+  <h2>4. Evidencia fotográfica</h2>
+  <p class="muted">Fotos del defecto para soportar el rechazo. Máximo <%= MAX_PHOTOS %> por lote.</p>
+  <% if (photos.length) { %>
+  <div class="photos">
+    <% photos.forEach(function (p, i) { %>
+    <figure>
+      <a href="/fotos/<%= p.id %>" target="_blank"><img src="/fotos/<%= p.id %>" alt="Foto <%= i + 1 %>" loading="lazy"></a>
+      <figcaption><strong>Foto <%= i + 1 %></strong><%= p.caption ? ': ' + p.caption : '' %><br><span class="muted"><%= p.taken_by_name %> · <%= p.created_at %></span></figcaption>
+      <% if (l.status !== 'liberado' && role !== 'inspector') { %>
+      <form method="post" action="/fotos/<%= p.id %>/eliminar" data-confirm="¿Eliminar esta foto?"><button class="btn small">Eliminar</button></form>
+      <% } %>
+    </figure>
+    <% }) %>
+  </div>
+  <% } else { %><p class="muted">Sin fotos.</p><% } %>
+  <% if (l.status !== 'liberado' && photos.length < MAX_PHOTOS) { %>
+  <form method="post" action="/lotes/<%= l.id %>/fotos" class="card narrow" id="photo-form">
+    <label>Foto <input type="file" accept="image/*" capture="environment" id="photo-file" required></label>
+    <img id="photo-preview" alt="" hidden>
+    <label>Descripción (opcional) <input name="caption" maxlength="200" placeholder="Ej.: envase roto en la base"></label>
+    <input type="hidden" name="photo" id="photo-data">
+    <button class="btn primary wide" id="photo-btn">Guardar foto</button>
+  </form>
   <% } %>
 </section>
 
