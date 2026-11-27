@@ -453,7 +453,7 @@ const MIGRATIONS = [
       if (changed) await db.prepare('UPDATE certificates SET snapshot = ? WHERE id = ?').run(JSON.stringify(snap), c.id);
     }
   },
-  // 10. Color y material del lote (listas editables guardadas en meta) y nuevos pesos de 5 galones:
+  // 10. Color (texto libre) y material del lote (lista editable guardada en meta) y nuevos pesos de 5 galones:
   // tapa 255 ± 5 g y cuñete 830 ± 10 g (pedido de Camilo, 2026-11-27).
   async (db) => {
     await addColumn(db, 'lots', 'color', 'TEXT');
@@ -461,7 +461,7 @@ const MIGRATIONS = [
     // Envases no conformes que se admiten sin rechazar la prueba (impacto: 1 de 5) y quedan anotados.
     await addColumn(db, 'test_types', 'max_fail', 'INTEGER NOT NULL DEFAULT 0');
     await db.exec("UPDATE test_types SET max_fail = 1 WHERE code = 'IMPACTO'");
-    for (const [k, v] of [['colors', DEFAULT_COLORS.join(',')], ['materials', DEFAULT_MATERIALS.join(',')]]) {
+    for (const [k, v] of [['materials', DEFAULT_MATERIALS.join(',')]]) {
       if (!(await db.prepare('SELECT 1 FROM meta WHERE key = ?').get(k))) await db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run(k, v);
     }
     const five = "product_id IN (SELECT id FROM products WHERE capacidad = '5 galones')";
@@ -477,7 +477,6 @@ async function addColumn(db, table, col, type) {
   if (!has) await db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
 }
 
-const DEFAULT_COLORS = ['Blanco', 'Negro', 'Azul', 'Rojo', 'Amarillo', 'Verde', 'Gris', 'Natural'];
 const DEFAULT_MATERIALS = ['PEAD virgen', 'PEAD recuperado'];
 
 const TEAM_USERS = [

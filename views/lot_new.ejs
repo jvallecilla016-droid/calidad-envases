@@ -20,12 +20,7 @@
     <label>Cantidad (unidades) <input type="number" min="0" name="quantity" value="<%= form.quantity || '' %>"></label>
   </div>
   <div class="row">
-    <label>Color del producto *
-      <select name="color" required>
-        <option value="">Seleccione…</option>
-        <% for (const o of colors) { %><option <%= form.color === o ? 'selected' : '' %>><%= o %></option><% } %>
-      </select>
-    </label>
+    <label>Color del producto * <input name="color" value="<%= form.color || '' %>" maxlength="40" required placeholder="Ej.: azul rey"></label>
     <label>Material *
       <select name="material" required>
         <option value="">Seleccione…</option>

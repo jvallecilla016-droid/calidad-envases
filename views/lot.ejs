@@ -9,12 +9,7 @@
     <details class="lot-data"><summary><%= l.color && l.material ? 'Cambiar color o material' : 'Definir color y material' %></summary>
       <form method="post" action="/lotes/<%= l.id %>/datos" class="card narrow">
         <div class="row">
-          <label>Color *
-      <select name="color" required>
-        <option value="">Seleccione…</option>
-        <% for (const o of colors) { %><option <%= l.color === o ? 'selected' : '' %>><%= o %></option><% } %>
-      </select>
-    </label>
+          <label>Color * <input name="color" value="<%= l.color || '' %>" maxlength="40" required></label>
           <label>Material *
       <select name="material" required>
         <option value="">Seleccione…</option>

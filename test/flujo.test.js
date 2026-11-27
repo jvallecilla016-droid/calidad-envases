@@ -309,8 +309,8 @@ test('evidencia fotográfica en lote rechazado', async (t) => {
   // Color y material quedan en el lote; sin ellos no se crea
   assert.deepStrictEqual({ ...(await db.prepare('SELECT color, material FROM lots WHERE id = ?').get(lot.id)) }, { color: 'Blanco', material: 'PEAD virgen' });
   assert.strictEqual((await insp.post('/lotes', { lot_number: 'SIN-COLOR', product_id: prod.id, production_date: '2026-11-26' })).status, 400);
-  await insp.post(`/lotes/${lot.id}/datos`, { color: 'Azul', material: 'PEAD recuperado' });
-  assert.strictEqual((await db.prepare('SELECT color FROM lots WHERE id = ?').get(lot.id)).color, 'Azul');
+  await insp.post(`/lotes/${lot.id}/datos`, { color: '  azul   rey ', material: 'PEAD recuperado' });
+  assert.strictEqual((await db.prepare('SELECT color FROM lots WHERE id = ?').get(lot.id)).color, 'azul rey');
   // Sin límite de fotos
   for (let i = 0; i < 9; i++) await insp.post(`/lotes/${lot.id}/fotos`, { photo: 'data:image/png;base64,' + png });
   assert.strictEqual((await db.prepare('SELECT COUNT(*) AS n FROM lot_photos WHERE lot_id = ?').get(lot.id)).n, 10);

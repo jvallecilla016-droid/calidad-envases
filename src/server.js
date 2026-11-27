@@ -138,7 +138,8 @@ function createApp(db) {
   // Listas desplegables del lote (color y material), editables en Productos.
   const parseList = (v) => [...new Set(String(v || '').split(/[,\n]/).map((x) => x.trim().replace(/\s+/g, ' ').slice(0, 40)).filter(Boolean))].slice(0, 30);
   const getList = async (key) => parseList((await db.prepare('SELECT value FROM meta WHERE key = ?').get(key) || {}).value);
-  const lotLists = async () => ({ colors: await getList('colors'), materials: await getList('materials') });
+  const lotLists = async () => ({ materials: await getList('materials') });
+  const cleanColor = (v) => String(v || '').trim().replace(/\s+/g, ' ').slice(0, 40);
   app.get('/lotes/nuevo', auth, async (req, res) => {
     const products = await db.prepare('SELECT * FROM products WHERE active = 1 ORDER BY code').all();
     res.render('lot_new', { title: 'Nuevo lote', products, form: {}, error: null, ...(await lotLists()) });
@@ -153,12 +154,12 @@ function createApp(db) {
     else if (!f.production_date) error = 'La fecha de producción es obligatoria';
     else if (await db.prepare('SELECT 1 FROM lots WHERE lot_number = ?').get(lotNumber)) error = `El lote ${lotNumber} ya existe`;
     const lists = await lotLists();
-    if (!error && !lists.colors.includes(f.color)) error = 'Selecciona el color del producto';
+    if (!error && !cleanColor(f.color)) error = 'Escribe el color del producto';
     if (!error && !lists.materials.includes(f.material)) error = 'Selecciona el material';
     if (error) return res.status(400).render('lot_new', { title: 'Nuevo lote', products, form: f, error, ...lists });
     const r = await db.prepare(`INSERT INTO lots (lot_number, product_id, production_date, shift, machine, quantity, notes, color, material, created_by)
       VALUES (?,?,?,?,?,?,?,?,?,?)`).run(lotNumber, Number(f.product_id), f.production_date, f.shift || null, f.machine || null,
-      f.quantity ? Number(f.quantity) : null, f.notes || null, f.color, f.material, req.session.user.id);
+      f.quantity ? Number(f.quantity) : null, f.notes || null, cleanColor(f.color), f.material, req.session.user.id);
     await audit(req, 'crear_lote', lotNumber);
     flash(req, 'ok', `Lote ${lotNumber} creado. Registra las muestras y las pruebas.`);
     res.redirect(`/lotes/${r.lastInsertRowid}`);
@@ -186,10 +187,10 @@ function createApp(db) {
     const lot = req.ev.lot;
     const lists = await lotLists();
     if (!['en_proceso', 'en_revision'].includes(lot.status)) flash(req, 'error', 'El lote ya tiene decisión; no se puede modificar.');
-    else if (!lists.colors.includes(req.body.color) || !lists.materials.includes(req.body.material)) flash(req, 'error', 'Selecciona color y material');
+    else if (!cleanColor(req.body.color) || !lists.materials.includes(req.body.material)) flash(req, 'error', 'Escribe el color y selecciona el material');
     else {
-      await db.prepare('UPDATE lots SET color = ?, material = ? WHERE id = ?').run(req.body.color, req.body.material, lot.id);
-      await audit(req, 'cambiar_color_material', `${lot.lot_number}: ${req.body.color}, ${req.body.material}`);
+      await db.prepare('UPDATE lots SET color = ?, material = ? WHERE id = ?').run(cleanColor(req.body.color), req.body.material, lot.id);
+      await audit(req, 'cambiar_color_material', `${lot.lot_number}: ${cleanColor(req.body.color)}, ${req.body.material}`);
       flash(req, 'ok', 'Color y material guardados');
     }
     res.redirect(`/lotes/${lot.id}`);
@@ -475,14 +476,14 @@ function createApp(db) {
     res.render('products', { title: 'Productos y especificaciones', products, ...(await lotLists()) });
   });
   app.post('/listas', role('analista', 'jefe'), async (req, res) => {
-    for (const key of ['colors', 'materials']) {
+    for (const key of ['materials']) {
       const items = parseList(req.body[key]);
       if (!items.length) continue;
       await db.prepare('DELETE FROM meta WHERE key = ?').run(key);
       await db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run(key, items.join(','));
     }
-    await audit(req, 'cambiar_listas', `${req.body.colors || ''} | ${req.body.materials || ''}`);
-    flash(req, 'ok', 'Listas de color y material guardadas');
+    await audit(req, 'cambiar_listas', String(req.body.materials || ''));
+    flash(req, 'ok', 'Lista de materiales guardada');
     res.redirect('/productos#listas');
   });
   app.get('/productos/nuevo', role('analista', 'jefe'), (req, res) =>
