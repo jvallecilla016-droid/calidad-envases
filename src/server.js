@@ -46,7 +46,7 @@ function createApp(db) {
     res.locals.flash = req.session.flash || null;
     res.locals.v = APP_VERSION;
     delete req.session.flash;
-    res.locals.company = process.env.COMPANY_NAME || 'Planta de Envases Plásticos';
+    res.locals.company = process.env.COMPANY_NAME || 'MulPlast S.A.S.';
     next();
   });
 

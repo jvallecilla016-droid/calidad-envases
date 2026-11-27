@@ -2,20 +2,26 @@
 <% const l = ev.lot; const draftKey = l.id + '-' + (sample ? sample.id : 'nueva'); %>
 <a class="back" href="/lotes/<%= l.id %>">‹ Lote <%= l.lot_number %></a>
 <h1><%= sample ? 'Editar' : 'Registrar' %> muestra <%= sampleNo %></h1>
-<p class="muted"><%= l.product_name %> · <%= l.molde %>. Verde = dentro de LIC–LSC, rojo = fuera. Puedes usar coma decimal.</p>
+<p class="muted"><%= l.product_name %> · <%= l.molde %>. Elige el valor en la lista o escríbelo a mano si se sale de los límites. Verde = dentro de LIC–LSC, rojo = fuera.</p>
 <% if (error) { %><div class="flash error"><%= error %></div><% } %>
 <p class="flash ok" id="draft-note" hidden>Recuperé lo que habías digitado y no alcanzaste a guardar.</p>
 <form method="post" action="/lotes/<%= l.id %>/muestras<%= sample ? '/' + sample.id : '' %>" id="sample-form" data-draft="<%= draftKey %>" novalidate>
   <input type="hidden" name="sample_no" value="<%= sampleNo %>">
   <input type="hidden" name="draft" value="<%= draftKey %>">
-  <% const singles = ev.specs.filter(s => !s.points); const multi = ev.specs.filter(s => s.points); %>
+  <% const singles = ev.specs.filter(s => !s.points); const multi = ev.specs.filter(s => s.points);
+     // Valores dentro de LIC–LSC para elegir de la lista: 1 g en pesos, 0,1 mm en medidas.
+     const stepOf = (spec) => { let st = spec.unit === 'g' ? 1 : 0.1; while ((spec.lsc - spec.lic) / st > 200) st *= 2; return st; };
+     const optionsOf = (spec) => { const st = stepOf(spec); const dec = st < 1 ? 1 : 0; const out = [];
+       for (let v = Math.ceil(spec.lic / st - 1e-9) * st; v <= spec.lsc + 1e-9; v += st) out.push(v.toFixed(dec).replace('.', ','));
+       return out; };
+     const pick = (spec) => `<select class="pick" aria-label="Elegir valor de la lista" tabindex="-1"><option value="">Lista</option>${optionsOf(spec).map((o) => `<option${o === String(spec.lcc ?? '').replace('.', ',') ? ' data-lcc' : ''}>${o}</option>`).join('')}<option value="__mano">Escribir a mano</option></select>`; %>
   <% if (singles.length) { %>
   <fieldset class="spec">
     <legend>Peso</legend>
     <div class="weights">
       <% for (const spec of singles) { const key = spec.id + '|'; %>
         <label class="w"><span><%= spec.characteristic %> <small><%= spec.lic %>–<%= spec.lsc %> <%= spec.unit %></small></span>
-          <input class="meas" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" name="m_<%= spec.id %>_X" data-lic="<%= spec.lic %>" data-lsc="<%= spec.lsc %>" value="<%= values[key] ?? '' %>" required>
+          <input class="meas" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" name="m_<%= spec.id %>_X" data-lic="<%= spec.lic %>" data-lsc="<%= spec.lsc %>" value="<%= values[key] ?? '' %>" required><%- pick(spec) %>
         </label>
       <% } %>
     </div>
@@ -27,7 +33,7 @@
     <div class="points">
       <% for (const p of specPoints(spec)) { const key = spec.id + '|' + p; %>
         <label class="pt"><span><%= p %></span>
-          <input class="meas" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" name="m_<%= spec.id %>_<%= p %>" data-lic="<%= spec.lic %>" data-lsc="<%= spec.lsc %>" value="<%= values[key] ?? '' %>" required aria-label="<%= spec.characteristic %> punto <%= p %>">
+          <input class="meas" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" name="m_<%= spec.id %>_<%= p %>" data-lic="<%= spec.lic %>" data-lsc="<%= spec.lsc %>" value="<%= values[key] ?? '' %>" required aria-label="<%= spec.characteristic %> punto <%= p %>"><%- pick(spec) %>
         </label>
       <% } %>
     </div>

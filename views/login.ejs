@@ -1,8 +1,8 @@
 <%- include('partials/header') %>
 <div class="login">
-  <img src="/static/icons/cg-192.png?v=<%= v %>" alt="Calidad Gestión" width="96" height="96" style="border-radius:22px;display:block;margin:0 auto 12px">
+  <img src="/static/icons/mulplast-logo.png?v=<%= v %>" alt="<%= company %>" class="company-logo">
   <h1>Control de calidad</h1>
-  <p class="muted"><%= company %></p>
+  <p class="muted"><%= company %> · Liberación de lotes</p>
   <% if (error) { %><div class="flash error"><%= error %></div><% } %>
   <form method="post" action="/login" class="card">
     <label>Usuario <input name="username" autocomplete="username" required autofocus></label>

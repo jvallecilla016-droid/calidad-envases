@@ -165,3 +165,16 @@ document.querySelectorAll('form[data-confirm]').forEach((f) => {
     btn.disabled = true; btn.textContent = 'Enviando…';
   });
 })();
+
+// Lista ▾ de cada lectura: llena la casilla con un valor dentro de límites; «Escribir a mano» deja digitar cualquiera.
+document.querySelectorAll('select.pick').forEach((sel) => {
+  const input = sel.parentElement.querySelector('input.meas');
+  sel.addEventListener('change', () => {
+    const v = sel.value;
+    sel.value = '';
+    if (v === '__mano') { input.focus(); input.select(); return; }
+    if (!v) return;
+    input.value = v;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+});

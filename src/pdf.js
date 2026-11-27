@@ -2,7 +2,13 @@
 const { resisted } = require('./quality');
 const PDFDocument = require('pdfkit');
 
-const COMPANY = () => process.env.COMPANY_NAME || 'Planta de Envases Plásticos';
+const COMPANY = () => process.env.COMPANY_NAME || 'MulPlast S.A.S.';
+const LOGO = require('path').join(__dirname, '..', 'public', 'icons', 'mulplast-logo.png');
+
+// Logo de la empresa a la izquierda del encabezado; devuelve la x donde empieza el texto.
+function brand(doc, L) {
+  try { doc.image(LOGO, L + 6, 46, { fit: [125, 44], valign: 'center' }); return L + 140; } catch (e) { return L + 10; }
+}
 const fmt = (v, d = 1) => (v === null || v === undefined ? '—' : Number(v).toFixed(d).replace(/\.0+$/, ''));
 
 // Genera el certificado de liberación a partir de la foto (snapshot) guardada al liberar.
@@ -15,9 +21,10 @@ function certificatePdf(snap, stream, photos = []) {
 
   // Encabezado
   doc.rect(L, 40, W, 60).stroke('#1f3b57');
-  doc.fillColor('#1f3b57').font('Helvetica-Bold').fontSize(13).text(COMPANY(), L + 10, 50, { width: W - 180 });
-  doc.font('Helvetica-Bold').fontSize(11).text('CERTIFICADO DE LIBERACIÓN DE LOTE', L + 10, 72, { width: W - 180 });
-  doc.fontSize(9).font('Helvetica').fillColor('#333').text('Control de calidad de producto terminado', L + 10, 86);
+  const tx = brand(doc, L);
+  doc.fillColor('#1f3b57').font('Helvetica-Bold').fontSize(12).text(COMPANY(), tx, 49, { width: L + W - 170 - tx });
+  doc.font('Helvetica-Bold').fontSize(11).text('CERTIFICADO DE LIBERACIÓN DE LOTE', tx, 69, { width: L + W - 170 - tx });
+  doc.fontSize(9).font('Helvetica').fillColor('#333').text('Control de calidad de producto terminado', tx, 86);
   doc.rect(L + W - 160, 40, 160, 60).fill('#1f3b57');
   doc.fillColor('#fff').fontSize(9).text('CONSECUTIVO', L + W - 160, 52, { width: 160, align: 'center' });
   doc.font('Helvetica-Bold').fontSize(16).text(snap.number, L + W - 160, 66, { width: 160, align: 'center' });
@@ -214,9 +221,10 @@ function lotReportPdf(ev, photos, stream) {
   const tone = rejected ? RED : '#1f3b57';
 
   doc.rect(L, 40, W, 60).stroke(tone);
-  doc.fillColor('#1f3b57').font('Helvetica-Bold').fontSize(13).text(COMPANY(), L + 10, 50, { width: W - 180 });
-  doc.fillColor(tone).font('Helvetica-Bold').fontSize(11).text(rejected ? 'INFORME DE LOTE RECHAZADO' : 'INFORME DE LOTE', L + 10, 72, { width: W - 180 });
-  doc.fontSize(9).font('Helvetica').fillColor('#333').text('Control de calidad de producto terminado', L + 10, 86);
+  const tx = brand(doc, L);
+  doc.fillColor('#1f3b57').font('Helvetica-Bold').fontSize(12).text(COMPANY(), tx, 49, { width: L + W - 170 - tx });
+  doc.fillColor(tone).font('Helvetica-Bold').fontSize(11).text(rejected ? 'INFORME DE LOTE RECHAZADO' : 'INFORME DE LOTE', tx, 69, { width: L + W - 170 - tx });
+  doc.fontSize(9).font('Helvetica').fillColor('#333').text('Control de calidad de producto terminado', tx, 86);
   doc.rect(L + W - 160, 40, 160, 60).fill(tone);
   doc.fillColor('#fff').fontSize(9).text('LOTE', L + W - 160, 52, { width: 160, align: 'center' });
   doc.font('Helvetica-Bold').fontSize(14).text(lot.lot_number, L + W - 160, 66, { width: 160, align: 'center' });
