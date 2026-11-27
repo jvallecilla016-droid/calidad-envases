@@ -6,7 +6,7 @@ const COMPANY = () => process.env.COMPANY_NAME || 'Planta de Envases Plásticos'
 const fmt = (v, d = 1) => (v === null || v === undefined ? '—' : Number(v).toFixed(d).replace(/\.0+$/, ''));
 
 // Genera el certificado de liberación a partir de la foto (snapshot) guardada al liberar.
-function certificatePdf(snap, stream) {
+function certificatePdf(snap, stream, photos = []) {
   const doc = new PDFDocument({ size: 'LETTER', margin: 40, bufferPages: true, info: { Title: `Certificado ${snap.number}` } });
   doc.pipe(stream);
   const L = 40;
@@ -34,6 +34,8 @@ function certificatePdf(snap, stream) {
     ['Cantidad del lote', lot.quantity ? `${lot.quantity} unidades` : '—'],
     ['Muestras evaluadas', String(snap.samples.length)],
     ['Fecha de liberación', lot.decided_at],
+    ['Color', lot.color],
+    ['Material', lot.material],
   ];
   const colW = W / 2;
   info.forEach(([k, v], i) => {
@@ -83,13 +85,15 @@ function certificatePdf(snap, stream) {
     y = tableRow(doc, tcols, [t.name, (t.result === 'pasa' ? 'APROBADO' : 'NO APROBADO') + extra, t.performed_by || '—', t.performed_at, obs], L, y,
       { color1: t.result === 'pasa' ? '#1d7a35' : '#b3261e' });
   }
-  y += 14;
+  y += 6;
+  y = annotations(doc, snap.tests, L, y, W);
+  y += 8;
 
   // Dictamen
   doc.rect(L, y, W, 34).fill('#e8f3ea');
   doc.fillColor('#1d7a35').font('Helvetica-Bold').fontSize(12).text('DICTAMEN: LOTE LIBERADO', L + 10, y + 6);
   doc.font('Helvetica').fontSize(8.5).fillColor('#222')
-    .text('El lote cumple con todas las especificaciones dimensionales, de peso y con las pruebas de liberación definidas.', L + 10, y + 21, { width: W - 20 });
+    .text(`El lote cumple con todas las especificaciones dimensionales, de peso y con las pruebas de liberación definidas${snap.tests.some((t) => t.result === 'pasa' && failedUnits(t).length) ? ', con la anotación indicada arriba' : ''}.`, L + 10, y + 21, { width: W - 20 });
   y += 44;
   if (lot.decision_notes) {
     doc.font('Helvetica-Bold').fontSize(8.5).text('Observaciones de liberación: ', L, y, { continued: true }).font('Helvetica').text(lot.decision_notes, { width: W });
@@ -176,6 +180,13 @@ function certificatePdf(snap, stream) {
     }
   }
 
+  // Evidencia fotográfica del lote, en página aparte.
+  if (photos.length) {
+    doc.addPage();
+    y = sectionTitle(doc, `Evidencia fotográfica (${photos.length})`, L, 40, W);
+    photoGrid(doc, photos, L, y, W);
+  }
+
   // Pie de página
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
@@ -188,20 +199,25 @@ function certificatePdf(snap, stream) {
   doc.end();
 }
 
-// Informe de lote rechazado, con hallazgos y evidencia fotográfica.
-function rejectionPdf(ev, photos, stream) {
-  const doc = new PDFDocument({ size: 'LETTER', margin: 40, bufferPages: true, info: { Title: `Informe de rechazo ${ev.lot.lot_number}` } });
+const STATUS = { en_proceso: 'En proceso', en_revision: 'En revisión', liberado: 'Liberado', rechazado: 'Rechazado' };
+
+// Informe del lote en cualquier estado, con hallazgos y evidencia fotográfica.
+// Si el lote se rechazó, sale como «Informe de lote rechazado» con el motivo.
+function lotReportPdf(ev, photos, stream) {
+  const doc = new PDFDocument({ size: 'LETTER', margin: 40, bufferPages: true, info: { Title: `Informe del lote ${ev.lot.lot_number}` } });
   doc.pipe(stream);
   const L = 40;
   const W = doc.page.width - 80;
   const lot = ev.lot;
   const RED = '#b3261e';
+  const rejected = lot.status === 'rechazado';
+  const tone = rejected ? RED : '#1f3b57';
 
-  doc.rect(L, 40, W, 60).stroke(RED);
+  doc.rect(L, 40, W, 60).stroke(tone);
   doc.fillColor('#1f3b57').font('Helvetica-Bold').fontSize(13).text(COMPANY(), L + 10, 50, { width: W - 180 });
-  doc.fillColor(RED).font('Helvetica-Bold').fontSize(11).text('INFORME DE LOTE RECHAZADO', L + 10, 72, { width: W - 180 });
+  doc.fillColor(tone).font('Helvetica-Bold').fontSize(11).text(rejected ? 'INFORME DE LOTE RECHAZADO' : 'INFORME DE LOTE', L + 10, 72, { width: W - 180 });
   doc.fontSize(9).font('Helvetica').fillColor('#333').text('Control de calidad de producto terminado', L + 10, 86);
-  doc.rect(L + W - 160, 40, 160, 60).fill(RED);
+  doc.rect(L + W - 160, 40, 160, 60).fill(tone);
   doc.fillColor('#fff').fontSize(9).text('LOTE', L + W - 160, 52, { width: 160, align: 'center' });
   doc.font('Helvetica-Bold').fontSize(14).text(lot.lot_number, L + W - 160, 66, { width: 160, align: 'center' });
   doc.fillColor('#000');
@@ -214,8 +230,11 @@ function rejectionPdf(ev, photos, stream) {
     ['Turno / Máquina', [lot.shift, lot.machine].filter(Boolean).join(' / ') || '—'],
     ['Cantidad del lote', lot.quantity ? `${lot.quantity} unidades` : '—'],
     ['Muestras evaluadas', String(ev.samples.length)],
-    ['Rechazado por', lot.decided_by_name],
-    ['Fecha de rechazo', lot.decided_at],
+    ['Color', lot.color],
+    ['Material', lot.material],
+    ['Estado', STATUS[lot.status] + (lot.certificate_number ? ` (${lot.certificate_number})` : '')],
+    ['Fecha del informe', new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })],
+    ...(lot.decided_at ? [[rejected ? 'Rechazado por' : 'Decidido por', lot.decided_by_name], [rejected ? 'Fecha de rechazo' : 'Fecha de decisión', lot.decided_at]] : []),
   ];
   const colW = W / 2;
   info.forEach(([k, v], i) => {
@@ -226,12 +245,12 @@ function rejectionPdf(ev, photos, stream) {
   });
   y += Math.ceil(info.length / 2) * 18 + 10;
 
-  y = sectionTitle(doc, '1. Motivo del rechazo', L, y, W);
-  doc.font('Helvetica').fontSize(9).text(lot.decision_notes || '—', L + 4, y, { width: W - 8 });
+  y = sectionTitle(doc, rejected ? '1. Motivo del rechazo' : '1. Observaciones', L, y, W);
+  doc.font('Helvetica').fontSize(9).text((rejected ? lot.decision_notes : [lot.notes, lot.decision_notes].filter(Boolean).join(' · ')) || '—', L + 4, y, { width: W - 8 });
   y = doc.y + 10;
 
   y = sectionTitle(doc, '2. Hallazgos registrados', L, y, W);
-  const found = ev.problems.length ? ev.problems : ['Sin hallazgos automáticos: ver motivo y evidencia fotográfica.'];
+  const found = ev.problems.length ? ev.problems : [ev.conforme ? 'Sin hallazgos: todas las mediciones y pruebas cumplen.' : 'Sin hallazgos automáticos: ver evidencia fotográfica.'];
   doc.font('Helvetica').fontSize(8.5);
   for (const p of found) {
     if (y > doc.page.height - 60) { doc.addPage(); y = 40; }
@@ -260,15 +279,78 @@ function rejectionPdf(ev, photos, stream) {
     const res = !r ? 'PENDIENTE' : r.result === 'pasa' ? 'APROBADO' : 'NO APROBADO';
     y = tableRow(doc, tcols, [t.type.name, r ? r.performed_by_name || '—' : '—', res], L, y, { last: r && r.result === 'pasa' ? '#1d7a35' : RED });
   }
-  y += 10;
+  y += 6;
+  y = annotations(doc, ev.tests.filter((t) => t.result).map((t) => ({
+    name: t.type.name, result: t.result.result, detail: t.result.detail, checks: t.result.test_checks || 0,
+    items: t.result.test_items || null, min_ok: t.result.test_min_ok, max_fail: t.result.test_max_fail || 0,
+  })), L, y, W);
+  y += 4;
 
   // Evidencia fotográfica: 2 por fila.
-  if (y > doc.page.height - 120) { doc.addPage(); y = 40; }
+  if (y > doc.page.height - (photos.length ? 280 : 120)) { doc.addPage(); y = 40; }
   y = sectionTitle(doc, `5. Evidencia fotográfica (${photos.length})`, L, y, W);
   if (!photos.length) {
     doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#444').text('No se adjuntaron fotos.', L + 4, y);
     doc.fillColor('#000');
   }
+  if (photos.length) y = photoGrid(doc, photos, L, y, W);
+  else y += 16;
+
+  // Firmas
+  if (y > doc.page.height - 110) { doc.addPage(); y = 40; }
+  y = Math.max(y + 20, doc.y + 30);
+  const sw = (W - 40) / 2;
+  [[rejected ? 'Rechazó' : 'Elaboró (calidad)', rejected ? lot.decided_by_name : ''], ['Recibe (producción)', '']].forEach(([k, v], i) => {
+    const x = L + i * (sw + 40);
+    doc.moveTo(x, y + 30).lineTo(x + sw, y + 30).stroke('#555');
+    doc.font('Helvetica-Bold').fontSize(8.5).text(k, x, y + 34, { width: sw, align: 'center' });
+    doc.font('Helvetica').fontSize(8).text(v || ' ', x, y + 46, { width: sw, align: 'center' });
+  });
+
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(i);
+    doc.page.margins.bottom = 0;
+    doc.font('Helvetica').fontSize(7.5).fillColor('#666').text(
+      `${rejected ? 'Informe de rechazo' : 'Informe del lote'} · Lote ${lot.lot_number} · Página ${i + 1} de ${range.count}`,
+      L, doc.page.height - 30, { width: W, align: 'center', lineBreak: false });
+  }
+  doc.end();
+}
+
+// Anotación: envases que no cumplieron dentro de lo permitido (por ejemplo, 1 de 5 en impacto).
+function annotations(doc, tests, L, y, W) {
+  for (const t of tests) {
+    const bad = failedUnits(t);
+    if (t.result !== 'pasa' || !bad.length) continue;
+    const n = t.detail.split(';').length;
+    const why = bad.map((b) => (t.checks && !t.items ? `envase ${b.unit} resistió ${b.res} de ${t.checks} caídas` : `envase ${b.unit}`)).join('; ');
+    const k = t.max_fail || bad.length;
+    const txt = `ANOTACIÓN · ${t.name}: no cumplió ${bad.length} de ${n} envases (${why}). La prueba se aprueba porque se admite${k > 1 ? 'n' : ''} hasta ${k} envase${k > 1 ? 's' : ''} no conforme${k > 1 ? 's' : ''} de ${n}.`;
+    doc.font('Helvetica-Bold').fontSize(8);
+    const h = doc.heightOfString(txt, { width: W - 16 }) + 10;
+    if (y + h > doc.page.height - 45) { doc.addPage(); y = 40; }
+    doc.rect(L, y, W, h).fillAndStroke('#fff4e0', '#d9a74a');
+    doc.fillColor('#8a5a00').text(txt, L + 8, y + 5, { width: W - 16 });
+    doc.fillColor('#000');
+    y += h + 4;
+  }
+  return y;
+}
+
+// Envases que no cumplieron en una prueba por envase: [{ unit, res }].
+function failedUnits(t) {
+  if (!t.detail || !t.detail.includes(';')) return [];
+  return t.detail.split(';').map((g, i) => {
+    const v = g.split(',');
+    const res = t.checks && !t.items ? resisted(v) : null;
+    const ok = t.checks ? (t.items ? v.every((x) => x === '1') : res >= (t.min_ok || t.checks)) : v[0] === '1';
+    return ok ? null : { unit: i + 1, res };
+  }).filter(Boolean);
+}
+
+// Fotos en cuadrícula de 2 columnas; devuelve la altura donde termina.
+function photoGrid(doc, photos, L, y, W) {
   const gap = 12;
   const pw = (W - gap) / 2;
   const ph = 190;
@@ -287,27 +369,7 @@ function rejectionPdf(ev, photos, stream) {
     doc.fillColor('#000');
     if (col === 1 || i === photos.length - 1) y += ph + 38;
   });
-
-  // Firmas
-  if (y > doc.page.height - 110) { doc.addPage(); y = 40; }
-  y = Math.max(y + 20, doc.y + 30);
-  const sw = (W - 40) / 2;
-  [['Rechazó', lot.decided_by_name], ['Recibe (producción)', '']].forEach(([k, v], i) => {
-    const x = L + i * (sw + 40);
-    doc.moveTo(x, y + 30).lineTo(x + sw, y + 30).stroke('#555');
-    doc.font('Helvetica-Bold').fontSize(8.5).text(k, x, y + 34, { width: sw, align: 'center' });
-    doc.font('Helvetica').fontSize(8).text(v || ' ', x, y + 46, { width: sw, align: 'center' });
-  });
-
-  const range = doc.bufferedPageRange();
-  for (let i = 0; i < range.count; i++) {
-    doc.switchToPage(i);
-    doc.page.margins.bottom = 0;
-    doc.font('Helvetica').fontSize(7.5).fillColor('#666').text(
-      `Informe de rechazo · Lote ${lot.lot_number} · Página ${i + 1} de ${range.count}`,
-      L, doc.page.height - 30, { width: W, align: 'center', lineBreak: false });
-  }
-  doc.end();
+  return y;
 }
 
 // Casilla de 10 pt: con chulo verde si resistió, con X roja si falló.
@@ -355,4 +417,4 @@ function tableRow(doc, cols, values, x, y, opts = {}) {
   return y + h;
 }
 
-module.exports = { certificatePdf, rejectionPdf };
+module.exports = { certificatePdf, lotReportPdf };

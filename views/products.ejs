@@ -15,4 +15,20 @@
   <% } %>
   </tbody>
 </table>
+
+<section id="listas">
+  <h2>Listas del lote</h2>
+  <p class="muted">Opciones que aparecen al crear un lote. Escribe una por línea.</p>
+  <% if (user.role !== 'inspector') { %>
+  <form method="post" action="/listas" class="card narrow">
+    <div class="row">
+      <label>Colores <textarea name="colors" rows="8"><%= colors.join('\n') %></textarea></label>
+      <label>Materiales <textarea name="materials" rows="8"><%= materials.join('\n') %></textarea></label>
+    </div>
+    <button class="btn primary">Guardar listas</button>
+  </form>
+  <% } else { %>
+  <p>Colores: <%= colors.join(', ') %></p><p>Materiales: <%= materials.join(', ') %></p>
+  <% } %>
+</section>
 <%- include('partials/footer') %>

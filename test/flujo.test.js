@@ -38,10 +38,10 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   assert.strictEqual(specs.length, 6);
 
   // El inspector crea el lote con el número que digita la planta
-  let r = await insp.post('/lotes', { lot_number: 'L-2611-045', product_id: prod.id, production_date: '2026-11-23', shift: '2' });
+  let r = await insp.post('/lotes', { lot_number: 'L-2611-045', product_id: prod.id, production_date: '2026-11-23', shift: '2', color: 'Blanco', material: 'PEAD virgen' });
   assert.strictEqual(r.status, 302);
   const lotId = Number(r.headers.get('location').split('/').pop());
-  r = await insp.post('/lotes', { lot_number: 'l-2611-045', product_id: prod.id, production_date: '2026-11-23' });
+  r = await insp.post('/lotes', { lot_number: 'l-2611-045', product_id: prod.id, production_date: '2026-11-23', color: 'Blanco', material: 'PEAD virgen' });
   assert.strictEqual(r.status, 400, 'no permite lote repetido');
 
   const form = (override = {}) => {
@@ -95,11 +95,12 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   // Envase 5 falla en la primera caída: aunque se marquen las siguientes, no cuentan (se cuentan en orden)
   await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1100', '1110', '1111', '0111']) });
   let tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
-  assert.deepStrictEqual([tr.result, tr.score, tr.detail], ['no_pasa', 4, '1,1,1,1;1,1,0,0;1,1,1,0;1,1,1,1;0,0,0,0']);
-  // Un envase que falla en la segunda caída (solo resistió 1) no se aprueba
-  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1000', '1110', '1111', '1111']) });
+  // Solo 1 de 5 envases no cumple: la prueba se aprueba y el certificado lo anota
+  assert.deepStrictEqual([tr.result, tr.score, tr.detail], ['pasa', 4, '1,1,1,1;1,1,0,0;1,1,1,0;1,1,1,1;0,0,0,0']);
+  // Dos envases no cumplen (uno resistió solo 1 caída): no se aprueba
+  await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1000', '1110', '0111', '1111']) });
   tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
-  assert.deepStrictEqual([tr.result, tr.score], ['no_pasa', 4]);
+  assert.deepStrictEqual([tr.result, tr.score], ['no_pasa', 3]);
   // Los 5 envases con 2 o más resistidos: pasa
   await insp.post(`/lotes/${lotId}/pruebas`, { test_type_id: impacto.id, ...envases(['1111', '1100', '1110', '1111', '1100']) });
   tr = await db.prepare('SELECT * FROM test_results WHERE lot_id = ? AND test_type_id = ?').get(lotId, impacto.id);
@@ -146,7 +147,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   assert.ok(!(await (await jefe.get('/')).text()).includes('esperando tu visto bueno'));
 
   // Un segundo lote liberado recibe el consecutivo siguiente
-  r = await insp.post('/lotes', { lot_number: 'L-2611-046', product_id: prod.id, production_date: '2026-11-23' });
+  r = await insp.post('/lotes', { lot_number: 'L-2611-046', product_id: prod.id, production_date: '2026-11-23', color: 'Blanco', material: 'PEAD virgen' });
   const lot2 = Number(r.headers.get('location').split('/').pop());
   for (let i = 0; i < 5; i++) await insp.post(`/lotes/${lot2}/muestras`, form());
   for (const ty of types) await insp.post(`/lotes/${lot2}/pruebas`, { test_type_id: ty.id, ...aprobada(ty) });
@@ -175,7 +176,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
     assert.strictEqual((await anon.get(p)).status, 200, p);
   }
   // Tras guardar una muestra, la app indica qué borrador del celular puede borrar
-  r = await insp.post('/lotes', { lot_number: 'L-BORRADOR', product_id: prod.id, production_date: '2026-11-24' });
+  r = await insp.post('/lotes', { lot_number: 'L-BORRADOR', product_id: prod.id, production_date: '2026-11-24', color: 'Blanco', material: 'PEAD virgen' });
   const lot3 = Number(r.headers.get('location').split('/').pop());
   r = await insp.post(`/lotes/${lot3}/muestras`, { ...form(), draft: `${lot3}-nueva` });
   assert.strictEqual(r.headers.get('location'), `/lotes/${lot3}?guardado=${lot3}-nueva`);
@@ -228,7 +229,7 @@ test('solo Luis (administrador) elimina lotes y usuarios', async (t) => {
   await jefe.post('/cuenta', { current: DEFAULT_PASSWORD, password: 'ClaveLuis2026', confirm: 'ClaveLuis2026' });
   const insp = await login('inspector');
   const prod = await db.prepare("SELECT id FROM products WHERE code = 'REF04-CF'").get();
-  await insp.post('/lotes', { lot_number: 'PRUEBA-1', product_id: prod.id, production_date: '2026-11-24' });
+  await insp.post('/lotes', { lot_number: 'PRUEBA-1', product_id: prod.id, production_date: '2026-11-24', color: 'Blanco', material: 'PEAD virgen' });
   const lot = await db.prepare("SELECT id FROM lots WHERE lot_number = 'PRUEBA-1'").get();
   await insp.post(`/lotes/${lot.id}/muestras`, {});
 
@@ -285,7 +286,7 @@ test('evidencia fotográfica en lote rechazado', async (t) => {
   const insp = await login('inspector');
   const jefe = await login('jefe');
   const prod = await db.prepare("SELECT id FROM products WHERE code = 'REF04-CF'").get();
-  await insp.post('/lotes', { lot_number: 'FOTO-1', product_id: prod.id, production_date: '2026-11-26' });
+  await insp.post('/lotes', { lot_number: 'FOTO-1', product_id: prod.id, production_date: '2026-11-26', color: 'Blanco', material: 'PEAD virgen' });
   const lot = await db.prepare("SELECT id FROM lots WHERE lot_number = 'FOTO-1'").get();
 
   // PNG 1x1 válido
@@ -301,8 +302,19 @@ test('evidencia fotográfica en lote rechazado', async (t) => {
   assert.strictEqual(Buffer.from(await img.arrayBuffer()).toString('base64'), png);
   assert.match(await (await insp.get(`/lotes/${lot.id}`)).text(), /Envase roto en la base/);
 
-  // Antes del rechazo no hay informe
-  assert.strictEqual((await jefe.get(`/lotes/${lot.id}/informe.pdf`)).status, 302);
+  // El informe se genera en cualquier momento, también antes de decidir
+  const pre = await insp.get(`/lotes/${lot.id}/informe.pdf`);
+  assert.strictEqual(pre.status, 200);
+  assert.strictEqual(pre.headers.get('content-type'), 'application/pdf');
+  // Color y material quedan en el lote; sin ellos no se crea
+  assert.deepStrictEqual({ ...(await db.prepare('SELECT color, material FROM lots WHERE id = ?').get(lot.id)) }, { color: 'Blanco', material: 'PEAD virgen' });
+  assert.strictEqual((await insp.post('/lotes', { lot_number: 'SIN-COLOR', product_id: prod.id, production_date: '2026-11-26' })).status, 400);
+  await insp.post(`/lotes/${lot.id}/datos`, { color: 'Azul', material: 'PEAD recuperado' });
+  assert.strictEqual((await db.prepare('SELECT color FROM lots WHERE id = ?').get(lot.id)).color, 'Azul');
+  // Sin límite de fotos
+  for (let i = 0; i < 9; i++) await insp.post(`/lotes/${lot.id}/fotos`, { photo: 'data:image/png;base64,' + png });
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) AS n FROM lot_photos WHERE lot_id = ?').get(lot.id)).n, 10);
+  await db.prepare('DELETE FROM lot_photos WHERE lot_id = ? AND caption IS NULL').run(lot.id);
   await jefe.post(`/lotes/${lot.id}/rechazar`, { decision_notes: 'Envases rotos' });
   const pdf = await jefe.get(`/lotes/${lot.id}/informe.pdf`);
   assert.strictEqual(pdf.status, 200);
@@ -316,4 +328,17 @@ test('evidencia fotográfica en lote rechazado', async (t) => {
   assert.ok(await db.prepare('SELECT 1 FROM lot_photos WHERE id = ?').get(fotos[0].id));
   await jefe.post(`/fotos/${fotos[0].id}/eliminar`);
   assert.strictEqual(await db.prepare('SELECT 1 FROM lot_photos WHERE id = ?').get(fotos[0].id), undefined);
+});
+
+test('pesos de 5 galones y un envase no conforme en impacto queda anotado', async () => {
+  const db = await testDb();
+  const specs = await db.prepare(`SELECT p.code, s.characteristic, s.lic, s.lcc, s.lsc FROM specs s JOIN products p ON p.id = s.product_id
+    WHERE p.capacidad = '5 galones' AND s.characteristic LIKE 'Peso%' ORDER BY p.code, s.characteristic`).all();
+  assert.ok(specs.length >= 4);
+  for (const s of specs) {
+    if (s.characteristic === 'Peso tapa') assert.deepStrictEqual([s.lic, s.lcc, s.lsc], [250, 255, 260]);
+    else assert.deepStrictEqual([s.lic, s.lcc, s.lsc], [820, 830, 840]);
+  }
+  const imp = await db.prepare("SELECT max_fail FROM test_types WHERE code = 'IMPACTO'").get();
+  assert.strictEqual(imp.max_fail, 1);
 });

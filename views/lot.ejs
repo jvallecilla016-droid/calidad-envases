@@ -4,7 +4,30 @@
   <div>
     <h1>Lote <%= l.lot_number %> <span class="badge <%= l.status %>"><%= STATUS_NAMES[l.status] %></span></h1>
     <p class="muted"><%= l.product_name %> · <%= l.product_code %> · <%= l.molde %></p>
+    <p class="muted">Color: <strong><%= l.color || 'sin definir' %></strong> · Material: <strong><%= l.material || 'sin definir' %></strong></p>
+    <% if (l.status === 'en_proceso' || l.status === 'en_revision') { %>
+    <details class="lot-data"><summary><%= l.color && l.material ? 'Cambiar color o material' : 'Definir color y material' %></summary>
+      <form method="post" action="/lotes/<%= l.id %>/datos" class="card narrow">
+        <div class="row">
+          <label>Color *
+      <select name="color" required>
+        <option value="">Seleccione…</option>
+        <% for (const o of colors) { %><option <%= l.color === o ? 'selected' : '' %>><%= o %></option><% } %>
+      </select>
+    </label>
+          <label>Material *
+      <select name="material" required>
+        <option value="">Seleccione…</option>
+        <% for (const o of materials) { %><option <%= l.material === o ? 'selected' : '' %>><%= o %></option><% } %>
+      </select>
+    </label>
+        </div>
+        <button class="btn small">Guardar</button>
+      </form>
+    </details>
+    <% } %>
   </div>
+  <a class="btn" href="/lotes/<%= l.id %>/informe.pdf?v=<%= v %>&f=<%= photos.length %>" target="_blank">Informe del lote (PDF)</a>
   <% if (l.certificate_number) { %>
     <a class="btn primary" href="/certificados/<%= l.certificate_number %>.pdf?v=<%= v %>" target="_blank">Certificado <%= l.certificate_number %> (PDF)</a>
   <% } %>
@@ -166,7 +189,7 @@
     <% if (role === 'jefe') { %>
       <form method="post" action="/lotes/<%= l.id %>/rechazar" class="card narrow">
         <label>Rechazar el lote (motivo) <input name="decision_notes" required></label>
-        <p class="muted">Antes de rechazar, agrega las fotos de evidencia en la sección 4. Salen en el informe de rechazo.</p>
+        <p class="muted">Antes de rechazar, agrega las fotos de evidencia en la sección 4. Salen en el informe del lote.</p>
         <button class="btn danger">Rechazar lote</button>
       </form>
     <% } %>
@@ -184,7 +207,7 @@
 
 <section id="evidencia">
   <h2>4. Evidencia fotográfica</h2>
-  <p class="muted">Fotos del defecto para soportar el rechazo. Máximo <%= MAX_PHOTOS %> por lote.</p>
+  <p class="muted">Fotos del lote o de los defectos. Salen en el informe del lote y en el certificado.</p>
   <% if (photos.length) { %>
   <div class="photos">
     <% photos.forEach(function (p, i) { %>
@@ -198,7 +221,7 @@
     <% }) %>
   </div>
   <% } else { %><p class="muted">Sin fotos.</p><% } %>
-  <% if (l.status !== 'liberado' && photos.length < MAX_PHOTOS) { %>
+  <% if (l.status !== 'liberado') { %>
   <form method="post" action="/lotes/<%= l.id %>/fotos" class="card narrow" id="photo-form">
     <label>Foto <input type="file" accept="image/*" capture="environment" id="photo-file" required></label>
     <img id="photo-preview" alt="" hidden>
