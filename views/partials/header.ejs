@@ -7,18 +7,18 @@
 <meta name="theme-color" content="#1f3b57">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Calidad">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg?v=<%= v %>">
-<link rel="icon" type="image/png" href="/static/icons/favicon-32.png?v=<%= v %>">
-<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=<%= v %>">
+<meta name="apple-mobile-web-app-title" content="Calidad Gestión">
+<link rel="manifest" href="/manifest.webmanifest?v=<%= v %>">
+<link rel="icon" type="image/svg+xml" href="/static/icons/cg.svg?v=<%= v %>">
+<link rel="icon" type="image/png" href="/static/icons/cg-32.png?v=<%= v %>">
+<link rel="apple-touch-icon" href="/static/icons/cg-apple-180.png?v=<%= v %>">
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/app.js" defer></script>
 </head>
 <body class="<%= user ? 'auth' : '' %>">
 <% if (user) { %>
 <header class="top">
-  <a class="brand" href="/"><strong>Calidad</strong> <span><%= company %></span></a>
+  <a class="brand" href="/"><img src="/static/icons/cg-32.png?v=<%= v %>" alt="" width="26" height="26" class="logo"><strong>Calidad</strong> <span><%= company %></span></a>
   <nav class="desk">
     <a href="/">Lotes</a>
     <a href="/indicadores">Indicadores</a>

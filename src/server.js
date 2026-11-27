@@ -25,6 +25,7 @@ function createApp(db) {
   const pub = (f, type) => async (req, res) => { res.type(type); res.setHeader('Cache-Control', 'no-cache'); res.sendFile(path.join(__dirname, '..', 'public', f)); };
   app.get('/sw.js', pub('sw.js', 'application/javascript'));
   app.get('/manifest.webmanifest', pub('manifest.webmanifest', 'application/manifest+json'));
+  app.get('/favicon.ico', pub('icons/cg-32.png', 'image/png'));
   app.get('/offline.html', pub('offline.html', 'html'));
   // Con PostgreSQL las sesiones se guardan en la base: nadie pierde su sesión cuando el servidor se reinicia.
   const store = db.kind === 'pg'
