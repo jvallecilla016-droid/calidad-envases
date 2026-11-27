@@ -171,7 +171,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   assert.strictEqual((await jefe.get('/usuarios')).status, 403, 'el jefe genérico no administra usuarios');
   // Archivos para instalar la app en el celular (sin iniciar sesión)
   const anon = client(base);
-  for (const p of ['/sw.js', '/manifest.webmanifest', '/offline.html', '/static/app.js', '/static/icons/icon-192.png']) {
+  for (const p of ['/sw.js', '/manifest.webmanifest', '/offline.html', '/static/app.js', '/static/icons/cg-192.png', '/favicon.ico']) {
     assert.strictEqual((await anon.get(p)).status, 200, p);
   }
   // Tras guardar una muestra, la app indica qué borrador del celular puede borrar
