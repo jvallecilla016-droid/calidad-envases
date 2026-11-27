@@ -167,3 +167,6 @@ fieldset.units { border: 0; padding: 0; margin: 0 0 6px; }
 .photos figcaption { font-size: .85rem; margin: 6px 0; }
 #photo-preview { max-width: 100%; max-height: 240px; border-radius: 6px; margin: 6px 0; }
 .brand { display:inline-flex; align-items:center; } .brand .logo { border-radius:6px; margin-right:8px; }
+
+/* Lista de valores dentro de límites junto a cada lectura */
+.pick { margin: 2px 0 0; width: 100%; padding: 6px 2px; font-size: 14px; color: var(--muted); background: #f4f6f8; border: 1px solid var(--line); border-radius: 6px; text-align: center; }
