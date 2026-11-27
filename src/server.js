@@ -6,7 +6,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { open, tx, parseItems } = require('./db');
 const { evaluateLot, releaseLot, specPoints, resisted } = require('./quality');
-const { certificatePdf, rejectionPdf } = require('./pdf');
+const { certificatePdf, lotReportPdf } = require('./pdf');
 const indicadores = require('./indicadores');
 
 // Cambia en cada despliegue: se agrega a los enlaces del PDF para no usar copias guardadas.
@@ -135,9 +135,14 @@ function createApp(db) {
     res.render('dashboard', { title: 'Lotes', lots, counts, status, q, tab: 'lotes', toReview });
   });
 
+  // Listas desplegables del lote (color y material), editables en Productos.
+  const parseList = (v) => [...new Set(String(v || '').split(/[,\n]/).map((x) => x.trim().replace(/\s+/g, ' ').slice(0, 40)).filter(Boolean))].slice(0, 30);
+  const getList = async (key) => parseList((await db.prepare('SELECT value FROM meta WHERE key = ?').get(key) || {}).value);
+  const lotLists = async () => ({ materials: await getList('materials') });
+  const cleanColor = (v) => String(v || '').trim().replace(/\s+/g, ' ').slice(0, 40);
   app.get('/lotes/nuevo', auth, async (req, res) => {
     const products = await db.prepare('SELECT * FROM products WHERE active = 1 ORDER BY code').all();
-    res.render('lot_new', { title: 'Nuevo lote', products, form: {}, error: null });
+    res.render('lot_new', { title: 'Nuevo lote', products, form: {}, error: null, ...(await lotLists()) });
   });
   app.post('/lotes', auth, async (req, res) => {
     const f = req.body;
@@ -148,10 +153,13 @@ function createApp(db) {
     else if (!products.some((p) => p.id === Number(f.product_id))) error = 'Selecciona un producto';
     else if (!f.production_date) error = 'La fecha de producción es obligatoria';
     else if (await db.prepare('SELECT 1 FROM lots WHERE lot_number = ?').get(lotNumber)) error = `El lote ${lotNumber} ya existe`;
-    if (error) return res.status(400).render('lot_new', { title: 'Nuevo lote', products, form: f, error });
-    const r = await db.prepare(`INSERT INTO lots (lot_number, product_id, production_date, shift, machine, quantity, notes, created_by)
-      VALUES (?,?,?,?,?,?,?,?)`).run(lotNumber, Number(f.product_id), f.production_date, f.shift || null, f.machine || null,
-      f.quantity ? Number(f.quantity) : null, f.notes || null, req.session.user.id);
+    const lists = await lotLists();
+    if (!error && !cleanColor(f.color)) error = 'Escribe el color del producto';
+    if (!error && !lists.materials.includes(f.material)) error = 'Selecciona el material';
+    if (error) return res.status(400).render('lot_new', { title: 'Nuevo lote', products, form: f, error, ...lists });
+    const r = await db.prepare(`INSERT INTO lots (lot_number, product_id, production_date, shift, machine, quantity, notes, color, material, created_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`).run(lotNumber, Number(f.product_id), f.production_date, f.shift || null, f.machine || null,
+      f.quantity ? Number(f.quantity) : null, f.notes || null, cleanColor(f.color), f.material, req.session.user.id);
     await audit(req, 'crear_lote', lotNumber);
     flash(req, 'ok', `Lote ${lotNumber} creado. Registra las muestras y las pruebas.`);
     res.redirect(`/lotes/${r.lastInsertRowid}`);
@@ -172,7 +180,20 @@ function createApp(db) {
   };
 
   app.get('/lotes/:id', auth, loadLot, async (req, res) => {
-    res.render('lot', { title: `Lote ${req.ev.lot.lot_number}`, ev: req.ev, specPoints, photos: await loadPhotos(req.ev.lot.id), MAX_PHOTOS });
+    res.render('lot', { title: `Lote ${req.ev.lot.lot_number}`, ev: req.ev, specPoints, photos: await loadPhotos(req.ev.lot.id), ...(await lotLists()) });
+  });
+  // Corregir color y material mientras el lote no tenga decisión.
+  app.post('/lotes/:id/datos', auth, loadLot, async (req, res) => {
+    const lot = req.ev.lot;
+    const lists = await lotLists();
+    if (!['en_proceso', 'en_revision'].includes(lot.status)) flash(req, 'error', 'El lote ya tiene decisión; no se puede modificar.');
+    else if (!cleanColor(req.body.color) || !lists.materials.includes(req.body.material)) flash(req, 'error', 'Escribe el color y selecciona el material');
+    else {
+      await db.prepare('UPDATE lots SET color = ?, material = ? WHERE id = ?').run(cleanColor(req.body.color), req.body.material, lot.id);
+      await audit(req, 'cambiar_color_material', `${lot.lot_number}: ${cleanColor(req.body.color)}, ${req.body.material}`);
+      flash(req, 'ok', 'Color y material guardados');
+    }
+    res.redirect(`/lotes/${lot.id}`);
   });
 
   // Muestras
@@ -274,7 +295,9 @@ function createApp(db) {
     }
     const unitOk = (g) => (type.checks > 0 ? (type.items ? g.filter((v) => v === '1').length : resisted(g)) >= minOk : g[0] === '1');
     const okUnits = groups.filter(unitOk).length;
-    const result = okUnits === units ? 'pasa' : 'no_pasa';
+    const allowed = Math.min(type.max_fail || 0, units - 1);
+    const result = okUnits >= units - allowed ? 'pasa' : 'no_pasa';
+    const failedUnits = groups.map((g, i) => (unitOk(g) ? null : i + 1)).filter(Boolean);
     const detail = groups.map((g) => g.join(',')).join(';');
     const score = units > 1 ? okUnits : type.checks > 0 ? (type.items ? groups[0].filter((v) => v === '1').length : resisted(groups[0])) : null;
     let note = '';
@@ -283,7 +306,7 @@ function createApp(db) {
       const found = [...new Set(groups.flatMap((g) => names.filter((_, i) => g[i] === '0')))];
       note = found.length ? ` (defectos: ${found.join(', ')})` : ' (sin defectos)';
     } else if (units > 1) {
-      note = ` (${okUnits} de ${units} envases conformes)`;
+      note = ` (${okUnits} de ${units} envases conformes${result === 'pasa' && failedUnits.length ? `; no cumplió el envase ${failedUnits.join(', ')}, queda anotado en el certificado` : ''})`;
     } else if (type.checks > 0) {
       note = ` (${score} de ${type.checks} caídas resistidas)`;
     }
@@ -359,7 +382,6 @@ function createApp(db) {
 
   // ---------- Evidencia fotográfica ----------
   // Las fotos se guardan en la base central (Neon), no en el disco de Render.
-  const MAX_PHOTOS = 8;
   const loadPhotos = (lotId) => db.prepare(`SELECT ph.id, ph.caption, ph.created_at, u.full_name AS taken_by_name
     FROM lot_photos ph LEFT JOIN users u ON u.id = ph.taken_by WHERE ph.lot_id = ? ORDER BY ph.id`).all(lotId);
   app.post('/lotes/:id/fotos', auth, loadLot, async (req, res) => {
@@ -369,8 +391,6 @@ function createApp(db) {
     const m = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=]+)$/.exec(String(req.body.photo || ''));
     if (!m) { flash(req, 'error', 'Toma o elige una foto antes de guardar'); return res.redirect(back); }
     if (m[2].length > 6 * 1024 * 1024) { flash(req, 'error', 'La foto es muy pesada'); return res.redirect(back); }
-    const { n } = await db.prepare('SELECT COUNT(*) AS n FROM lot_photos WHERE lot_id = ?').get(lot.id);
-    if (n >= MAX_PHOTOS) { flash(req, 'error', `Máximo ${MAX_PHOTOS} fotos por lote`); return res.redirect(back); }
     await db.prepare('INSERT INTO lot_photos (lot_id, mime, data, caption, taken_by) VALUES (?,?,?,?,?)')
       .run(lot.id, m[1], m[2], String(req.body.caption || '').trim().slice(0, 200) || null, req.session.user.id);
     await audit(req, 'agregar_foto', lot.lot_number);
@@ -394,15 +414,15 @@ function createApp(db) {
     }
     res.redirect(`/lotes/${ph.lot_id}#evidencia`);
   });
-  // Informe de lote rechazado: motivo, hallazgos, mediciones, pruebas y fotos.
+  const photosWithData = (lotId) => db.prepare(`SELECT ph.mime, ph.data, ph.caption, ph.created_at, u.full_name AS taken_by_name
+      FROM lot_photos ph LEFT JOIN users u ON u.id = ph.taken_by WHERE ph.lot_id = ? ORDER BY ph.id`).all(lotId);
+  // Informe del lote en cualquier estado: hallazgos, mediciones, pruebas y fotos (si se rechazó, también el motivo).
   app.get('/lotes/:id/informe.pdf', auth, loadLot, async (req, res) => {
-    if (req.ev.lot.status !== 'rechazado') return res.redirect(`/lotes/${req.ev.lot.id}`);
-    const photos = await db.prepare(`SELECT ph.mime, ph.data, ph.caption, ph.created_at, u.full_name AS taken_by_name
-      FROM lot_photos ph LEFT JOIN users u ON u.id = ph.taken_by WHERE ph.lot_id = ? ORDER BY ph.id`).all(req.ev.lot.id);
+    const photos = await photosWithData(req.ev.lot.id);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Cache-Control', 'no-store, max-age=0');
-    res.setHeader('Content-Disposition', `inline; filename="Rechazo-${req.ev.lot.lot_number}.pdf"`);
-    rejectionPdf(req.ev, photos, res);
+    res.setHeader('Content-Disposition', `inline; filename="Informe-${req.ev.lot.lot_number}.pdf"`);
+    lotReportPdf(req.ev, photos, res);
   });
 
   // ---------- Certificados ----------
@@ -432,7 +452,7 @@ function createApp(db) {
     // El PDF se arma con el formato vigente cada vez: que el celular no muestre una copia vieja.
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     res.setHeader('Content-Disposition', `inline; filename="${c.number}.pdf"`);
-    certificatePdf(JSON.parse(c.snapshot), res);
+    certificatePdf(JSON.parse(c.snapshot), res, await photosWithData(c.lot_id));
   });
 
   // ---------- Indicadores ----------
@@ -453,7 +473,18 @@ function createApp(db) {
   app.get('/productos', auth, async (req, res) => {
     const products = await db.prepare(`SELECT p.*, (SELECT COUNT(*) FROM specs s WHERE s.product_id = p.id) AS n_specs
       FROM products p ORDER BY p.active DESC, p.code`).all();
-    res.render('products', { title: 'Productos y especificaciones', products });
+    res.render('products', { title: 'Productos y especificaciones', products, ...(await lotLists()) });
+  });
+  app.post('/listas', role('analista', 'jefe'), async (req, res) => {
+    for (const key of ['materials']) {
+      const items = parseList(req.body[key]);
+      if (!items.length) continue;
+      await db.prepare('DELETE FROM meta WHERE key = ?').run(key);
+      await db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run(key, items.join(','));
+    }
+    await audit(req, 'cambiar_listas', String(req.body.materials || ''));
+    flash(req, 'ok', 'Lista de materiales guardada');
+    res.redirect('/productos#listas');
   });
   app.get('/productos/nuevo', role('analista', 'jefe'), (req, res) =>
     res.render('product_form', { title: 'Nuevo producto', product: {}, specs: [], error: null }));
@@ -557,7 +588,8 @@ function createApp(db) {
   });
   app.post('/pruebas/:id/envases', role('analista', 'jefe'), async (req, res) => {
     const units = clampUnits(req.body.units);
-    await db.prepare('UPDATE test_types SET units = ? WHERE id = ?').run(units, Number(req.params.id));
+    const maxFail = Math.min(Math.max(Math.round(Number(req.body.max_fail)) || 0, 0), units - 1);
+    await db.prepare('UPDATE test_types SET units = ?, max_fail = ? WHERE id = ?').run(units, maxFail, Number(req.params.id));
     await audit(req, 'cambiar_envases_prueba', `${req.params.id}: ${units} envases`);
     flash(req, 'ok', `La prueba se hace ahora a ${units} envase(s) por lote`);
     res.redirect('/pruebas');

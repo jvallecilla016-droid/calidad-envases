@@ -132,8 +132,8 @@ const SEED_PRODUCTS = [
   {
     code: 'REF01-CF', name: 'Cuñete 5 galones Ref. 01', referencia: '01', capacidad: '5 galones', molde: 'Colada fría',
     specs: [
-      ['Cuñete', 'Peso cuñete', 'g', '', 800, 810, 820],
-      ['Tapa', 'Peso tapa', 'g', '', 225, 230, 235],
+      ['Cuñete', 'Peso cuñete', 'g', '', 820, 830, 840],
+      ['Tapa', 'Peso tapa', 'g', '', 250, 255, 260],
       ['Cuñete', 'Diámetro externo cuñete', 'mm', POINTS, 298, 301, 304],
       ['Cuñete', 'Diámetro interno cuñete', 'mm', POINTS, 292, 295, 298],
       ['Tapa', 'Diámetro externo tapa', 'mm', POINTS, 300, 302, 304],
@@ -143,8 +143,8 @@ const SEED_PRODUCTS = [
   {
     code: 'REF01-CC', name: 'Cuñete 5 galones Ref. 01', referencia: '01', capacidad: '5 galones', molde: 'Colada caliente',
     specs: [
-      ['Cuñete', 'Peso cuñete', 'g', '', 800, 810, 820],
-      ['Tapa', 'Peso tapa', 'g', '', 246, 250, 254],
+      ['Cuñete', 'Peso cuñete', 'g', '', 820, 830, 840],
+      ['Tapa', 'Peso tapa', 'g', '', 250, 255, 260],
       ['Cuñete', 'Diámetro externo cuñete', 'mm', POINTS, 298, 301, 304],
       ['Cuñete', 'Diámetro interno cuñete', 'mm', POINTS, 292, 295, 298],
       ['Tapa', 'Diámetro externo tapa', 'mm', POINTS, 300, 302, 304],
@@ -453,7 +453,31 @@ const MIGRATIONS = [
       if (changed) await db.prepare('UPDATE certificates SET snapshot = ? WHERE id = ?').run(JSON.stringify(snap), c.id);
     }
   },
+  // 10. Color (texto libre) y material del lote (lista editable guardada en meta) y nuevos pesos de 5 galones:
+  // tapa 255 ± 5 g y cuñete 830 ± 10 g (pedido de Camilo, 2026-11-27).
+  async (db) => {
+    await addColumn(db, 'lots', 'color', 'TEXT');
+    await addColumn(db, 'lots', 'material', 'TEXT');
+    // Envases no conformes que se admiten sin rechazar la prueba (impacto: 1 de 5) y quedan anotados.
+    await addColumn(db, 'test_types', 'max_fail', 'INTEGER NOT NULL DEFAULT 0');
+    await db.exec("UPDATE test_types SET max_fail = 1 WHERE code = 'IMPACTO'");
+    for (const [k, v] of [['materials', DEFAULT_MATERIALS.join(',')]]) {
+      if (!(await db.prepare('SELECT 1 FROM meta WHERE key = ?').get(k))) await db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run(k, v);
+    }
+    const five = "product_id IN (SELECT id FROM products WHERE capacidad = '5 galones')";
+    await db.exec(`UPDATE specs SET lic = 250, lcc = 255, lsc = 260 WHERE characteristic = 'Peso tapa' AND ${five}`);
+    await db.exec(`UPDATE specs SET lic = 820, lcc = 830, lsc = 840 WHERE characteristic = 'Peso cuñete' AND ${five}`);
+  },
 ];
+
+async function addColumn(db, table, col, type) {
+  const has = db.kind === 'pg'
+    ? await db.prepare('SELECT 1 FROM information_schema.columns WHERE table_name = ? AND column_name = ?').get(table, col)
+    : (await db.prepare(`SELECT name FROM pragma_table_info('${table}')`).all()).some((c) => c.name === col);
+  if (!has) await db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+}
+
+const DEFAULT_MATERIALS = ['PEAD virgen', 'PEAD recuperado'];
 
 const TEAM_USERS = [
   ['lgomez', 'Luis Eduardo Gómez', 'jefe'],

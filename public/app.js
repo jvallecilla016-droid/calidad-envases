@@ -126,7 +126,7 @@ document.querySelectorAll('form[data-confirm]').forEach((f) => {
   f.addEventListener('submit', (e) => { if (!window.confirm(f.dataset.confirm)) e.preventDefault(); });
 });
 
-// Evidencia fotográfica: la foto se reduce en el celular (máx. 1600 px, JPEG) antes de enviarla.
+// Evidencia fotográfica: la foto se reduce en el celular (máx. 1280 px, JPEG) antes de enviarla.
 (function () {
   const form = document.getElementById('photo-form');
   if (!form) return;
@@ -144,12 +144,12 @@ document.querySelectorAll('form[data-confirm]').forEach((f) => {
     const img = new Image();
     ready = new Promise((resolve) => {
       img.onload = () => {
-        const max = 1600;
+        const max = 1280;
         const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
         const c = document.createElement('canvas');
         c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        data.value = c.toDataURL('image/jpeg', 0.75);
+        data.value = c.toDataURL('image/jpeg', 0.7);
         preview.src = data.value; preview.hidden = false;
         URL.revokeObjectURL(url);
         btn.disabled = false; btn.textContent = 'Guardar foto';

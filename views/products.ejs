@@ -15,4 +15,17 @@
   <% } %>
   </tbody>
 </table>
+
+<section id="listas">
+  <h2>Materiales del lote</h2>
+  <p class="muted">Opciones de material que aparecen al crear un lote. Escribe una por línea. El color se escribe libre en cada lote.</p>
+  <% if (user.role !== 'inspector') { %>
+  <form method="post" action="/listas" class="card narrow">
+    <label>Materiales <textarea name="materials" rows="4"><%= materials.join('\n') %></textarea></label>
+    <button class="btn primary">Guardar materiales</button>
+  </form>
+  <% } else { %>
+  <p>Materiales: <%= materials.join(', ') %></p>
+  <% } %>
+</section>
 <%- include('partials/footer') %>
