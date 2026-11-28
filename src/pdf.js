@@ -41,8 +41,8 @@ function certificatePdf(snap, stream, photos = []) {
     ['Cantidad del lote', lot.quantity ? `${lot.quantity} unidades` : '—'],
     ['Muestras evaluadas', String(snap.samples.length)],
     ['Fecha de liberación', lot.decided_at],
-    ['Color', lot.color],
-    ['Material', lot.material],
+    ['Cuñete / galón', [lot.color, lot.material].filter(Boolean).join(', ')],
+    ['Tapa', [lot.lid_color, lot.lid_material].filter(Boolean).join(', ')],
   ];
   const colW = W / 2;
   info.forEach(([k, v], i) => {
@@ -238,8 +238,8 @@ function lotReportPdf(ev, photos, stream) {
     ['Turno / Máquina', [lot.shift, lot.machine].filter(Boolean).join(' / ') || '—'],
     ['Cantidad del lote', lot.quantity ? `${lot.quantity} unidades` : '—'],
     ['Muestras evaluadas', String(ev.samples.length)],
-    ['Color', lot.color],
-    ['Material', lot.material],
+    ['Cuñete / galón', [lot.color, lot.material].filter(Boolean).join(', ')],
+    ['Tapa', [lot.lid_color, lot.lid_material].filter(Boolean).join(', ')],
     ['Estado', STATUS[lot.status] + (lot.certificate_number ? ` (${lot.certificate_number})` : '')],
     ['Fecha del informe', new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })],
     ...(lot.decided_at ? [[rejected ? 'Rechazado por' : 'Decidido por', lot.decided_by_name], [rejected ? 'Fecha de rechazo' : 'Fecha de decisión', lot.decided_at]] : []),

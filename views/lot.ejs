@@ -4,19 +4,11 @@
   <div>
     <h1>Lote <%= l.lot_number %> <span class="badge <%= l.status %>"><%= STATUS_NAMES[l.status] %></span></h1>
     <p class="muted"><%= l.product_name %> · <%= l.product_code %> · <%= l.molde %></p>
-    <p class="muted">Color: <strong><%= l.color || 'sin definir' %></strong> · Material: <strong><%= l.material || 'sin definir' %></strong></p>
+    <p class="muted">Cuñete/galón: <strong><%= l.color || 'sin color' %></strong>, <strong><%= l.material || 'sin material' %></strong> · Tapa: <strong><%= l.lid_color || 'sin color' %></strong>, <strong><%= l.lid_material || 'sin material' %></strong></p>
     <% if (l.status === 'en_proceso' || l.status === 'en_revision') { %>
-    <details class="lot-data"><summary><%= l.color && l.material ? 'Cambiar color o material' : 'Definir color y material' %></summary>
+    <details class="lot-data"><summary><%= l.color && l.material && l.lid_color && l.lid_material ? 'Cambiar color o material' : 'Definir color y material' %></summary>
       <form method="post" action="/lotes/<%= l.id %>/datos" class="card narrow">
-        <div class="row">
-          <label>Color * <input name="color" value="<%= l.color || '' %>" maxlength="40" required></label>
-          <label>Material *
-      <select name="material" required>
-        <option value="">Seleccione…</option>
-        <% for (const o of materials) { %><option <%= l.material === o ? 'selected' : '' %>><%= o %></option><% } %>
-      </select>
-    </label>
-        </div>
+        <%- include('partials/piezas', { d: l }) %>
         <button class="btn small">Guardar</button>
       </form>
     </details>

@@ -38,10 +38,10 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   assert.strictEqual(specs.length, 6);
 
   // El inspector crea el lote con el número que digita la planta
-  let r = await insp.post('/lotes', { lot_number: 'L-2611-045', product_id: prod.id, production_date: '2026-11-23', shift: '2', color: 'Blanco', material: 'PEAD virgen' });
+  let r = await insp.post('/lotes', { lot_number: 'L-2611-045', product_id: prod.id, production_date: '2026-11-23', shift: '2', color: 'Blanco', material: 'PEAD virgen', lid_color: 'Azul', lid_material: 'PEAD virgen' });
   assert.strictEqual(r.status, 302);
   const lotId = Number(r.headers.get('location').split('/').pop());
-  r = await insp.post('/lotes', { lot_number: 'l-2611-045', product_id: prod.id, production_date: '2026-11-23', color: 'Blanco', material: 'PEAD virgen' });
+  r = await insp.post('/lotes', { lot_number: 'l-2611-045', product_id: prod.id, production_date: '2026-11-23', color: 'Blanco', material: 'PEAD virgen', lid_color: 'Azul', lid_material: 'PEAD virgen' });
   assert.strictEqual(r.status, 400, 'no permite lote repetido');
 
   const form = (override = {}) => {
@@ -147,7 +147,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
   assert.ok(!(await (await jefe.get('/')).text()).includes('esperando tu visto bueno'));
 
   // Un segundo lote liberado recibe el consecutivo siguiente
-  r = await insp.post('/lotes', { lot_number: 'L-2611-046', product_id: prod.id, production_date: '2026-11-23', color: 'Blanco', material: 'PEAD virgen' });
+  r = await insp.post('/lotes', { lot_number: 'L-2611-046', product_id: prod.id, production_date: '2026-11-23', color: 'Blanco', material: 'PEAD virgen', lid_color: 'Azul', lid_material: 'PEAD virgen' });
   const lot2 = Number(r.headers.get('location').split('/').pop());
   for (let i = 0; i < 5; i++) await insp.post(`/lotes/${lot2}/muestras`, form());
   for (const ty of types) await insp.post(`/lotes/${lot2}/pruebas`, { test_type_id: ty.id, ...aprobada(ty) });
@@ -176,7 +176,7 @@ test('flujo completo: lote, muestras, pruebas, aprobación y certificado', async
     assert.strictEqual((await anon.get(p)).status, 200, p);
   }
   // Tras guardar una muestra, la app indica qué borrador del celular puede borrar
-  r = await insp.post('/lotes', { lot_number: 'L-BORRADOR', product_id: prod.id, production_date: '2026-11-24', color: 'Blanco', material: 'PEAD virgen' });
+  r = await insp.post('/lotes', { lot_number: 'L-BORRADOR', product_id: prod.id, production_date: '2026-11-24', color: 'Blanco', material: 'PEAD virgen', lid_color: 'Azul', lid_material: 'PEAD virgen' });
   const lot3 = Number(r.headers.get('location').split('/').pop());
   r = await insp.post(`/lotes/${lot3}/muestras`, { ...form(), draft: `${lot3}-nueva` });
   assert.strictEqual(r.headers.get('location'), `/lotes/${lot3}?guardado=${lot3}-nueva`);
@@ -231,7 +231,7 @@ test('solo Luis (administrador) elimina lotes y usuarios', async (t) => {
   await jefe.post('/cuenta', { current: DEFAULT_PASSWORD, password: 'ClaveLuis2026', confirm: 'ClaveLuis2026' });
   const insp = await login('inspector');
   const prod = await db.prepare("SELECT id FROM products WHERE code = 'REF04-CF'").get();
-  await insp.post('/lotes', { lot_number: 'PRUEBA-1', product_id: prod.id, production_date: '2026-11-24', color: 'Blanco', material: 'PEAD virgen' });
+  await insp.post('/lotes', { lot_number: 'PRUEBA-1', product_id: prod.id, production_date: '2026-11-24', color: 'Blanco', material: 'PEAD virgen', lid_color: 'Azul', lid_material: 'PEAD virgen' });
   const lot = await db.prepare("SELECT id FROM lots WHERE lot_number = 'PRUEBA-1'").get();
   await insp.post(`/lotes/${lot.id}/muestras`, {});
 
@@ -288,7 +288,7 @@ test('evidencia fotográfica en lote rechazado', async (t) => {
   const insp = await login('inspector');
   const jefe = await login('jefe');
   const prod = await db.prepare("SELECT id FROM products WHERE code = 'REF04-CF'").get();
-  await insp.post('/lotes', { lot_number: 'FOTO-1', product_id: prod.id, production_date: '2026-11-26', color: 'Blanco', material: 'PEAD virgen' });
+  await insp.post('/lotes', { lot_number: 'FOTO-1', product_id: prod.id, production_date: '2026-11-26', color: 'Blanco', material: 'PEAD virgen', lid_color: 'Azul', lid_material: 'PEAD virgen' });
   const lot = await db.prepare("SELECT id FROM lots WHERE lot_number = 'FOTO-1'").get();
 
   // PNG 1x1 válido
@@ -309,10 +309,11 @@ test('evidencia fotográfica en lote rechazado', async (t) => {
   assert.strictEqual(pre.status, 200);
   assert.strictEqual(pre.headers.get('content-type'), 'application/pdf');
   // Color y material quedan en el lote; sin ellos no se crea
-  assert.deepStrictEqual({ ...(await db.prepare('SELECT color, material FROM lots WHERE id = ?').get(lot.id)) }, { color: 'Blanco', material: 'PEAD virgen' });
+  assert.deepStrictEqual({ ...(await db.prepare('SELECT color, material, lid_color FROM lots WHERE id = ?').get(lot.id)) }, { color: 'Blanco', material: 'PEAD virgen', lid_color: 'Azul' });
   assert.strictEqual((await insp.post('/lotes', { lot_number: 'SIN-COLOR', product_id: prod.id, production_date: '2026-11-26' })).status, 400);
-  await insp.post(`/lotes/${lot.id}/datos`, { color: '  azul   rey ', material: 'PEAD recuperado' });
-  assert.strictEqual((await db.prepare('SELECT color FROM lots WHERE id = ?').get(lot.id)).color, 'azul rey');
+  await insp.post(`/lotes/${lot.id}/datos`, { color: '  azul   rey ', material: 'PEAD recuperado', lid_color: 'Blanco', lid_material: 'PEAD virgen' });
+  assert.deepStrictEqual({ ...(await db.prepare('SELECT color, material, lid_color, lid_material FROM lots WHERE id = ?').get(lot.id)) },
+    { color: 'azul rey', material: 'PEAD recuperado', lid_color: 'Blanco', lid_material: 'PEAD virgen' });
   // Sin límite de fotos
   for (let i = 0; i < 9; i++) await insp.post(`/lotes/${lot.id}/fotos`, { photo: 'data:image/png;base64,' + png });
   assert.strictEqual((await db.prepare('SELECT COUNT(*) AS n FROM lot_photos WHERE lot_id = ?').get(lot.id)).n, 10);

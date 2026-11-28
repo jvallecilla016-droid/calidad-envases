@@ -154,12 +154,12 @@ function createApp(db) {
     else if (!f.production_date) error = 'La fecha de producción es obligatoria';
     else if (await db.prepare('SELECT 1 FROM lots WHERE lot_number = ?').get(lotNumber)) error = `El lote ${lotNumber} ya existe`;
     const lists = await lotLists();
-    if (!error && !cleanColor(f.color)) error = 'Escribe el color del producto';
-    if (!error && !lists.materials.includes(f.material)) error = 'Selecciona el material';
+    if (!error && (!cleanColor(f.color) || !cleanColor(f.lid_color))) error = 'Escribe el color del cuñete o galón y el de la tapa';
+    if (!error && (!lists.materials.includes(f.material) || !lists.materials.includes(f.lid_material))) error = 'Selecciona el material del cuñete o galón y el de la tapa';
     if (error) return res.status(400).render('lot_new', { title: 'Nuevo lote', products, form: f, error, ...lists });
-    const r = await db.prepare(`INSERT INTO lots (lot_number, product_id, production_date, shift, machine, quantity, notes, color, material, created_by)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`).run(lotNumber, Number(f.product_id), f.production_date, f.shift || null, f.machine || null,
-      f.quantity ? Number(f.quantity) : null, f.notes || null, cleanColor(f.color), f.material, req.session.user.id);
+    const r = await db.prepare(`INSERT INTO lots (lot_number, product_id, production_date, shift, machine, quantity, notes, color, material, lid_color, lid_material, created_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(lotNumber, Number(f.product_id), f.production_date, f.shift || null, f.machine || null,
+      f.quantity ? Number(f.quantity) : null, f.notes || null, cleanColor(f.color), f.material, cleanColor(f.lid_color), f.lid_material, req.session.user.id);
     await audit(req, 'crear_lote', lotNumber);
     flash(req, 'ok', `Lote ${lotNumber} creado. Registra las muestras y las pruebas.`);
     res.redirect(`/lotes/${r.lastInsertRowid}`);
@@ -187,10 +187,13 @@ function createApp(db) {
     const lot = req.ev.lot;
     const lists = await lotLists();
     if (!['en_proceso', 'en_revision'].includes(lot.status)) flash(req, 'error', 'El lote ya tiene decisión; no se puede modificar.');
-    else if (!cleanColor(req.body.color) || !lists.materials.includes(req.body.material)) flash(req, 'error', 'Escribe el color y selecciona el material');
-    else {
-      await db.prepare('UPDATE lots SET color = ?, material = ? WHERE id = ?').run(cleanColor(req.body.color), req.body.material, lot.id);
-      await audit(req, 'cambiar_color_material', `${lot.lot_number}: ${cleanColor(req.body.color)}, ${req.body.material}`);
+    else if (!cleanColor(req.body.color) || !cleanColor(req.body.lid_color) || !lists.materials.includes(req.body.material) || !lists.materials.includes(req.body.lid_material)) {
+      flash(req, 'error', 'Escribe los colores y selecciona los materiales del cuñete o galón y de la tapa');
+    } else {
+      const b = req.body;
+      await db.prepare('UPDATE lots SET color = ?, material = ?, lid_color = ?, lid_material = ? WHERE id = ?')
+        .run(cleanColor(b.color), b.material, cleanColor(b.lid_color), b.lid_material, lot.id);
+      await audit(req, 'cambiar_color_material', `${lot.lot_number}: cuñete ${cleanColor(b.color)}, ${b.material}; tapa ${cleanColor(b.lid_color)}, ${b.lid_material}`);
       flash(req, 'ok', 'Color y material guardados');
     }
     res.redirect(`/lotes/${lot.id}`);
