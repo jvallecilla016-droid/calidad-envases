@@ -401,14 +401,18 @@ function sectionTitle(doc, text, x, y, w) {
 }
 
 function tableHeader(doc, cols, x, y) {
-  let cx = x;
+  // Los títulos largos (ej.: «Se deforma o agrieta al tapar») bajan de línea y la fila crece para que no se monten.
   doc.font('Helvetica-Bold').fontSize(7.5);
-  for (const [label, w, align] of cols) {
-    doc.rect(cx, y, w, 14).fillAndStroke('#f2f4f6', '#c8ced4');
-    doc.fillColor('#000').text(label, cx + 3, y + 4, { width: w - 6, align: align || 'center' });
+  const hs = cols.map(([label, w]) => doc.heightOfString(String(label), { width: w - 6 }));
+  const h = Math.max(14, ...hs.map((hh) => hh + 6));
+  if (y + h + 13 > doc.page.height - 45) { doc.addPage(); y = 40; }
+  let cx = x;
+  cols.forEach(([label, w, align], i) => {
+    doc.rect(cx, y, w, h).fillAndStroke('#f2f4f6', '#c8ced4');
+    doc.fillColor('#000').text(String(label), cx + 3, y + (h - hs[i]) / 2, { width: w - 6, align: align || 'center' });
     cx += w;
-  }
-  return y + 14;
+  });
+  return y + h;
 }
 
 function tableRow(doc, cols, values, x, y, opts = {}) {
