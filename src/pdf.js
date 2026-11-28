@@ -1,6 +1,6 @@
 'use strict';
 const { resisted } = require('./quality');
-const { bodyName } = require('./names');
+const { bodyName, lidName } = require('./names');
 const PDFDocument = require('pdfkit');
 
 const COMPANY = () => process.env.COMPANY_NAME || 'MulPlast S.A.S.';
@@ -359,7 +359,7 @@ function failedUnits(t) {
 // Color y material: por pieza en lotes nuevos; los lotes anteriores quedan como se registraron.
 function pieceRows(lot) {
   if (!lot.lid_color && !lot.lid_material) return [['Color', lot.color], ['Material', lot.material]];
-  return [[bodyName(lot.product_name, lot.referencia), [lot.color, lot.material].filter(Boolean).join(', ')], ['Tapa', [lot.lid_color, lot.lid_material].filter(Boolean).join(', ')]];
+  return [[bodyName(lot.product_name, lot.referencia), [lot.color, lot.material].filter(Boolean).join(', ')], [lidName(lot.referencia), [lot.lid_color, lot.lid_material].filter(Boolean).join(', ')]];
 }
 
 // Fotos en cuadrícula de 2 columnas; devuelve la altura donde termina.
