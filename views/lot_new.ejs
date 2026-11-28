@@ -19,15 +19,7 @@
     <label>Máquina / inyectora <input name="machine" value="<%= form.machine || '' %>"></label>
     <label>Cantidad (unidades) <input type="number" min="0" name="quantity" value="<%= form.quantity || '' %>"></label>
   </div>
-  <div class="row">
-    <label>Color del producto * <input name="color" value="<%= form.color || '' %>" maxlength="40" required placeholder="Ej.: azul rey"></label>
-    <label>Material *
-      <select name="material" required>
-        <option value="">Seleccione…</option>
-        <% for (const o of materials) { %><option <%= form.material === o ? 'selected' : '' %>><%= o %></option><% } %>
-      </select>
-    </label>
-  </div>
+  <%- include('partials/piezas', { d: form }) %>
   <label>Observaciones <textarea name="notes" rows="2"><%= form.notes || '' %></textarea></label>
   <button class="btn primary">Crear lote</button>
 </form>

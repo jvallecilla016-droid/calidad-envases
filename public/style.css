@@ -171,3 +171,4 @@ fieldset.units { border: 0; padding: 0; margin: 0 0 6px; }
 
 /* Lista de valores dentro de límites junto a cada lectura */
 .pick { margin: 2px 0 0; width: 100%; padding: 6px 2px; font-size: 14px; color: var(--muted); background: #f4f6f8; border: 1px solid var(--line); border-radius: 6px; text-align: center; }
+fieldset.piezas { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px 4px; margin: 0 0 10px; } fieldset.piezas legend { font-weight: 600; padding: 0 6px; }

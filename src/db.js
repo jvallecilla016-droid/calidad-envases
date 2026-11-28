@@ -475,6 +475,12 @@ const MIGRATIONS = [
       .run('ENSAMBLE', 'Ensamble de tapa', 'Tapar cada envase y revisar el cierre. Marcar cada falla como presente o ausente. Se aprueba solo si no tiene ninguna.',
         ENSAMBLE_ITEMS.length, ENSAMBLE_ITEMS.length, ENSAMBLE_ITEMS.join(','), 5, 0);
   },
+  // 12. Color y material por pieza: el del lote queda para el cuñete o galón y se agregan los de la tapa.
+  // Los lotes que ya existen se dejan como están (pedido de Camilo): sin datos de tapa.
+  async (db) => {
+    await addColumn(db, 'lots', 'lid_color', 'TEXT');
+    await addColumn(db, 'lots', 'lid_material', 'TEXT');
+  },
 ];
 
 const ENSAMBLE_ITEMS = ['No cierra completa', 'Queda floja o con juego', 'Seguro no engancha', 'Se deforma o agrieta al tapar'];
