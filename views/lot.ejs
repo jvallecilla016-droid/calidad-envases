@@ -5,7 +5,7 @@
     <h1>Lote <%= l.lot_number %> <span class="badge <%= l.status %>"><%= STATUS_NAMES[l.status] %></span></h1>
     <p class="muted"><%= l.product_name %> · <%= l.product_code %> · <%= l.molde %></p>
     <% if (l.lid_color || l.lid_material) { %>
-    <p class="muted">Cuñete/galón: <strong><%= l.color || 'sin color' %></strong>, <strong><%= l.material || 'sin material' %></strong> · Tapa: <strong><%= l.lid_color || 'sin color' %></strong>, <strong><%= l.lid_material || 'sin material' %></strong></p>
+    <p class="muted"><%= bodyName(l.product_name, l.referencia) %>: <strong><%= l.color || 'sin color' %></strong>, <strong><%= l.material || 'sin material' %></strong> · Tapa: <strong><%= l.lid_color || 'sin color' %></strong>, <strong><%= l.lid_material || 'sin material' %></strong></p>
     <% } else { %>
     <p class="muted">Color: <strong><%= l.color || 'sin definir' %></strong> · Material: <strong><%= l.material || 'sin definir' %></strong></p>
     <% } %>

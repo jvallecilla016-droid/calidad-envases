@@ -5,6 +5,7 @@ const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { open, tx, parseItems } = require('./db');
+const { bodyName } = require('./names');
 const { evaluateLot, releaseLot, specPoints, resisted } = require('./quality');
 const { certificatePdf, lotReportPdf } = require('./pdf');
 const indicadores = require('./indicadores');
@@ -45,6 +46,7 @@ function createApp(db) {
     res.locals.STATUS_NAMES = STATUS_NAMES;
     res.locals.flash = req.session.flash || null;
     res.locals.v = APP_VERSION;
+    res.locals.bodyName = bodyName;
     delete req.session.flash;
     res.locals.company = process.env.COMPANY_NAME || 'MulPlast S.A.S.';
     next();
