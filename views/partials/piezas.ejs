@@ -1,7 +1,7 @@
 <%# Color y material por pieza: cuerpo (cuñete o galón) y tapa. d = datos actuales del formulario o del lote. %>
 <% const matSel = (name, cur) => `<select name="${name}" required><option value="">Seleccione…</option>${materials.map((o) => `<option${cur === o ? ' selected' : ''}>${o}</option>`).join('')}</select>`; %>
 <fieldset class="piezas">
-  <legend>Cuñete o galón</legend>
+  <legend data-body><%= d.product_name ? bodyName(d.product_name, d.referencia) : 'Cuñete o galón' %></legend>
   <div class="row">
     <label>Color * <input name="color" value="<%= d.color || '' %>" maxlength="40" required placeholder="Ej.: blanco"></label>
     <label>Material * <%- matSel('material', d.material) %></label>

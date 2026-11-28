@@ -7,7 +7,7 @@
     <select name="product_id" required>
       <option value="">Seleccione…</option>
       <% for (const p of products) { %>
-        <option value="<%= p.id %>" <%= String(form.product_id) === String(p.id) ? 'selected' : '' %>><%= p.code %> · <%= p.name %> · <%= p.molde %></option>
+        <option value="<%= p.id %>" data-body="<%= bodyName(p.name, p.referencia) %>" <%= String(form.product_id) === String(p.id) ? 'selected' : '' %>><%= p.code %> · <%= p.name %> · <%= p.molde %></option>
       <% } %>
     </select>
   </label>

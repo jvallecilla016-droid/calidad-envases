@@ -178,3 +178,13 @@ document.querySelectorAll('select.pick').forEach((sel) => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 });
+
+// Nuevo lote: el bloque de color y material se titula según el producto (Cuñete o Galón, con su referencia).
+(function () {
+  const sel = document.querySelector('select[name=product_id]');
+  const legend = document.querySelector('legend[data-body]');
+  if (!sel || !legend) return;
+  const update = () => { const o = sel.selectedOptions[0]; legend.textContent = (o && o.dataset.body) || 'Cuñete o galón'; };
+  sel.addEventListener('change', update);
+  update();
+})();
