@@ -184,7 +184,12 @@ document.querySelectorAll('select.pick').forEach((sel) => {
   const sel = document.querySelector('select[name=product_id]');
   const legend = document.querySelector('legend[data-body]');
   if (!sel || !legend) return;
-  const update = () => { const o = sel.selectedOptions[0]; legend.textContent = (o && o.dataset.body) || 'Cuñete o galón'; };
+  const lid = document.querySelector('legend[data-lid]');
+  const update = () => {
+    const o = sel.selectedOptions[0];
+    legend.textContent = (o && o.dataset.body) || 'Cuñete o galón';
+    if (lid) lid.textContent = (o && o.dataset.lid) || 'Tapa';
+  };
   sel.addEventListener('change', update);
   update();
 })();

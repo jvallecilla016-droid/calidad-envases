@@ -8,7 +8,7 @@
   </div>
 </fieldset>
 <fieldset class="piezas">
-  <legend>Tapa</legend>
+  <legend data-lid><%= d.product_name ? lidName(d.referencia) : 'Tapa' %></legend>
   <div class="row">
     <label>Color * <input name="lid_color" value="<%= d.lid_color || '' %>" maxlength="40" required placeholder="Ej.: azul rey"></label>
     <label>Material * <%- matSel('lid_material', d.lid_material) %></label>
