@@ -476,11 +476,10 @@ const MIGRATIONS = [
         ENSAMBLE_ITEMS.length, ENSAMBLE_ITEMS.length, ENSAMBLE_ITEMS.join(','), 5, 0);
   },
   // 12. Color y material por pieza: el del lote queda para el cuñete o galón y se agregan los de la tapa.
-  // En los lotes que ya existen, la tapa toma el mismo color y material registrado.
+  // Los lotes que ya existen se dejan como están (pedido de Camilo): sin datos de tapa.
   async (db) => {
     await addColumn(db, 'lots', 'lid_color', 'TEXT');
     await addColumn(db, 'lots', 'lid_material', 'TEXT');
-    await db.exec('UPDATE lots SET lid_color = color, lid_material = material WHERE lid_color IS NULL');
   },
 ];
 

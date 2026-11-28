@@ -41,8 +41,7 @@ function certificatePdf(snap, stream, photos = []) {
     ['Cantidad del lote', lot.quantity ? `${lot.quantity} unidades` : '—'],
     ['Muestras evaluadas', String(snap.samples.length)],
     ['Fecha de liberación', lot.decided_at],
-    ['Cuñete / galón', [lot.color, lot.material].filter(Boolean).join(', ')],
-    ['Tapa', [lot.lid_color, lot.lid_material].filter(Boolean).join(', ')],
+    ...pieceRows(lot),
   ];
   const colW = W / 2;
   info.forEach(([k, v], i) => {
@@ -238,8 +237,7 @@ function lotReportPdf(ev, photos, stream) {
     ['Turno / Máquina', [lot.shift, lot.machine].filter(Boolean).join(' / ') || '—'],
     ['Cantidad del lote', lot.quantity ? `${lot.quantity} unidades` : '—'],
     ['Muestras evaluadas', String(ev.samples.length)],
-    ['Cuñete / galón', [lot.color, lot.material].filter(Boolean).join(', ')],
-    ['Tapa', [lot.lid_color, lot.lid_material].filter(Boolean).join(', ')],
+    ...pieceRows(lot),
     ['Estado', STATUS[lot.status] + (lot.certificate_number ? ` (${lot.certificate_number})` : '')],
     ['Fecha del informe', new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })],
     ...(lot.decided_at ? [[rejected ? 'Rechazado por' : 'Decidido por', lot.decided_by_name], [rejected ? 'Fecha de rechazo' : 'Fecha de decisión', lot.decided_at]] : []),
@@ -355,6 +353,12 @@ function failedUnits(t) {
     const ok = t.checks ? (t.items ? v.every((x) => x === '1') : res >= (t.min_ok || t.checks)) : v[0] === '1';
     return ok ? null : { unit: i + 1, res };
   }).filter(Boolean);
+}
+
+// Color y material: por pieza en lotes nuevos; los lotes anteriores quedan como se registraron.
+function pieceRows(lot) {
+  if (!lot.lid_color && !lot.lid_material) return [['Color', lot.color], ['Material', lot.material]];
+  return [['Cuñete / galón', [lot.color, lot.material].filter(Boolean).join(', ')], ['Tapa', [lot.lid_color, lot.lid_material].filter(Boolean).join(', ')]];
 }
 
 // Fotos en cuadrícula de 2 columnas; devuelve la altura donde termina.
