@@ -190,7 +190,9 @@ test('una prueba nueva se vuelve obligatoria para liberar', async () => {
   const lot = (await db.prepare("INSERT INTO lots (lot_number, product_id, production_date) VALUES ('X1', ?, '2026-11-23')").run(prod.id)).lastInsertRowid;
   const { evaluateLot } = require('../src/quality');
   const ev = await evaluateLot(db, lot);
-  assert.strictEqual(ev.tests.length, 4);
+  assert.strictEqual(ev.tests.length, 5);
+  const ens = ev.tests.find((t) => t.type.code === 'ENSAMBLE').type;
+  assert.deepStrictEqual([ens.checks, ens.units, ens.items.split(',').length], [4, 5, 4]);
   assert.ok(ev.problems.some((p) => p.includes('apilamiento')));
 });
 

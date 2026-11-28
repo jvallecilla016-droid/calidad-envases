@@ -468,7 +468,16 @@ const MIGRATIONS = [
     await db.exec(`UPDATE specs SET lic = 250, lcc = 255, lsc = 260 WHERE characteristic = 'Peso tapa' AND ${five}`);
     await db.exec(`UPDATE specs SET lic = 820, lcc = 830, lsc = 840 WHERE characteristic = 'Peso cuñete' AND ${five}`);
   },
+  // 11. Prueba de ensamble de tapa con checklist por envase (pedido de Camilo, 2026-11-28).
+  async (db) => {
+    if (await db.prepare("SELECT 1 FROM test_types WHERE code = 'ENSAMBLE'").get()) return;
+    await db.prepare('INSERT INTO test_types (code, name, description, checks, min_ok, items, units, max_fail) VALUES (?,?,?,?,?,?,?,?)')
+      .run('ENSAMBLE', 'Ensamble de tapa', 'Tapar cada envase y revisar el cierre. Marcar cada falla como presente o ausente. Se aprueba solo si no tiene ninguna.',
+        ENSAMBLE_ITEMS.length, ENSAMBLE_ITEMS.length, ENSAMBLE_ITEMS.join(','), 5, 0);
+  },
 ];
+
+const ENSAMBLE_ITEMS = ['No cierra completa', 'Queda floja o con juego', 'Seguro no engancha', 'Se deforma o agrieta al tapar'];
 
 async function addColumn(db, table, col, type) {
   const has = db.kind === 'pg'
